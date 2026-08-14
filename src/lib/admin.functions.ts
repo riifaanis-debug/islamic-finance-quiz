@@ -140,9 +140,12 @@ export const processBag = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import(
       "@/integrations/supabase/client.server"
     );
-    const { chunkPages, extractPdfPages, embedInBatches } = await import(
-      "./pdf.server"
-    );
+    const {
+      chunkLayoutPages,
+      extractPdfLayout,
+      visionExtractAll,
+      embedInBatches,
+    } = await import("./pdf.server");
 
     const setStatus = async (status: string, extra: Record<string, unknown> = {}) => {
       await supabaseAdmin
@@ -165,27 +168,57 @@ export const processBag = createServerFn({ method: "POST" })
         .download(bag.file_path as string);
       if (download.error || !download.data) throw new Error("DOWNLOAD_FAILED");
       const bytes = new Uint8Array(await download.data.arrayBuffer());
-      const pages = await extractPdfPages(bytes);
+      const pages = await extractPdfLayout(bytes, async (done, total) => {
+        if (done % 5 === 0 || done === total) {
+          await setStatus("extracting", {
+            total_pages: total,
+            processing_progress: 5 + Math.round((done / total) * 25),
+          });
+        }
+      });
+
+      // Vision fallback only for pages whose layout parsing looked unreliable
+      // (scrambled Arabic glyphs, image-only pages, ambiguous column order).
+      const weak = pages
+        .filter((p) => p.quality === "low")
+        .map((p) => p.page_number);
+      if (weak.length > 0) {
+        const rescued = await visionExtractAll(bytes, weak, {
+          onProgress: async (done, total) => {
+            await setStatus("extracting", {
+              processing_progress: 30 + Math.round((done / total) * 20),
+            });
+          },
+        });
+        for (const [pageNumber, page] of rescued) {
+          pages[pageNumber - 1] = page;
+        }
+      }
 
       await setStatus("chunking", {
         total_pages: pages.length,
-        processing_progress: 35,
+        processing_progress: 52,
       });
 
-      // Persist the real per-page text so page numbers are never guessed.
+      // Persist raw + structured text and layout blocks per real page number.
       await supabaseAdmin.from("document_pages").delete().eq("bag_id", data.id);
-      const pageRows = pages.map((text, index) => ({
+      const pageRows = pages.map((page) => ({
         bag_id: data.id,
-        page_number: index + 1,
-        page_text: text ?? "",
+        page_number: page.page_number,
+        page_text: page.structured_text || page.raw_text,
+        raw_text: page.raw_text,
+        structured_text: page.structured_text,
+        layout_blocks: page.blocks,
+        extraction_quality: page.quality,
+        extraction_method: page.method,
       }));
-      for (let i = 0; i < pageRows.length; i += 200) {
+      for (let i = 0; i < pageRows.length; i += 100) {
         await supabaseAdmin
           .from("document_pages")
-          .insert(pageRows.slice(i, i + 200) as never);
+          .insert(pageRows.slice(i, i + 100) as never);
       }
 
-      const chunks = chunkPages(pages);
+      const chunks = chunkLayoutPages(pages);
       if (chunks.length === 0) throw new Error("NO_TEXT_FOUND");
 
       await setStatus("embedding", {
@@ -199,6 +232,7 @@ export const processBag = createServerFn({ method: "POST" })
         bag_id: data.id,
         page_number: c.page_number,
         chunk_index: c.chunk_index,
+        block_index: c.block_index,
         section_title: c.section_title,
         content: c.content,
         embedding: JSON.stringify(embeddings[i]),
@@ -219,6 +253,7 @@ export const processBag = createServerFn({ method: "POST" })
 
       await setStatus("ready", { processing_progress: 100 });
       return { ok: true, pages: pages.length, chunks: chunks.length };
+
     } catch (error) {
       const message = error instanceof Error ? error.message : "UNKNOWN";
       await setStatus("failed", { error_message: message });
@@ -337,5 +372,60 @@ export const knowledgeHealth = createServerFn({ method: "POST" })
         chunks: chunks.count ?? 0,
       },
       updatedAt,
+    };
+  });
+
+export type PagePreview = {
+  page_number: number;
+  extraction_quality: string;
+  extraction_method: string;
+  structured_text: string;
+  raw_text: string;
+  blocks: { index: number; title: string | null; text: string }[];
+  total_pages: number;
+};
+
+export const getPagePreview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        bag_id: z.string().uuid(),
+        page_number: z.number().int().min(1).max(5000),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }): Promise<PagePreview | null> => {
+    await assertAdmin(context.supabase as never, context.userId);
+    const { supabaseAdmin } = await import(
+      "@/integrations/supabase/client.server"
+    );
+    const [{ data: page }, { data: bag }] = await Promise.all([
+      supabaseAdmin
+        .from("document_pages")
+        .select(
+          "page_number,page_text,raw_text,structured_text,layout_blocks,extraction_quality,extraction_method",
+        )
+        .eq("bag_id", data.bag_id)
+        .eq("page_number", data.page_number)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("training_bags")
+        .select("total_pages")
+        .eq("id", data.bag_id)
+        .maybeSingle(),
+    ]);
+    if (!page) return null;
+    const row = page as Record<string, unknown>;
+    return {
+      page_number: Number(row["page_number"]),
+      extraction_quality: String(row["extraction_quality"] ?? "high"),
+      extraction_method: String(row["extraction_method"] ?? "layout"),
+      structured_text: String(row["structured_text"] || row["page_text"] || ""),
+      raw_text: String(row["raw_text"] ?? ""),
+      blocks: Array.isArray(row["layout_blocks"])
+        ? (row["layout_blocks"] as PagePreview["blocks"])
+        : [],
+      total_pages: Number((bag as Record<string, unknown> | null)?.["total_pages"] ?? 0),
     };
   });
