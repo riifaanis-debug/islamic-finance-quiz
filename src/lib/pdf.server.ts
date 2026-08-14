@@ -269,7 +269,8 @@ export async function extractPdfLayout(
   onProgress?: (done: number, total: number) => void | Promise<void>,
 ): Promise<PageExtraction[]> {
   const { getDocumentProxy } = await import("unpdf");
-  const pdf = await getDocumentProxy(bytes);
+  // pdf.js takes ownership of the buffer, so hand it a copy.
+  const pdf = await getDocumentProxy(bytes.slice());
   const total = pdf.numPages;
   const pages: PageExtraction[] = [];
 
@@ -345,7 +346,11 @@ function toBase64(bytes: Uint8Array) {
 
 async function slicePdf(bytes: Uint8Array, pageNumbers: number[]) {
   const { PDFDocument } = await import("pdf-lib");
-  const source = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const source = await PDFDocument.load(bytes.slice(), {
+    ignoreEncryption: true,
+    throwOnInvalidObject: false,
+    updateMetadata: false,
+  });
   const out = await PDFDocument.create();
   const copied = await out.copyPages(
     source,
