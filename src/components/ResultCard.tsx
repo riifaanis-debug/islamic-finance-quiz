@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BookOpen, Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { AnswerResult } from "@/lib/rag.server";
+import type { AnswerResult } from "@/lib/types";
 
 const CONFIDENCE_LABEL: Record<string, string> = {
   high: "عالية",

@@ -7,6 +7,7 @@ import {
   retrieveChunks,
   type AnswerResult,
 } from "./rag.server";
+import type { AskResponse } from "./types";
 import { chatJson, type ChatMessage } from "./ai.server";
 
 const textSchema = z.object({
@@ -17,9 +18,6 @@ const imageSchema = z.object({
   image: z.string().min(100).max(12_000_000),
 });
 
-export type AskResponse =
-  | { ok: true; result: AnswerResult }
-  | { ok: false; error: "unreadable_image" | "no_knowledge" | "failed" };
 
 async function logHistory(
   admin: Awaited<
