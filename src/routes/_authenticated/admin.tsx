@@ -2,15 +2,27 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, LogOut, Trash2, UploadCloud, Play } from "lucide-react";
+import {
+  Loader2,
+  LogOut,
+  Trash2,
+  UploadCloud,
+  Play,
+  RefreshCw,
+  Search,
+  Stethoscope,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { Textarea } from "@/components/ui/textarea";
 import {
   claimFirstAdmin,
+  knowledgeHealth,
+  testSearch,
   createBag,
   deleteBag,
   getAdminStatus,
@@ -55,6 +67,52 @@ function AdminPage() {
   const addBag = useServerFn(createBag);
   const removeBag = useServerFn(deleteBag);
   const runProcess = useServerFn(processBag);
+  const runHealth = useServerFn(knowledgeHealth);
+  const runSearch = useServerFn(testSearch);
+
+  const [health, setHealth] = useState<Awaited<
+    ReturnType<typeof knowledgeHealth>
+  > | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchBag, setSearchBag] = useState<string>("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Awaited<
+    ReturnType<typeof testSearch>
+  > | null>(null);
+
+  const checkHealth = async () => {
+    setHealthLoading(true);
+    try {
+      setHealth(await runHealth({}));
+    } catch {
+      toast.error("تعذر فحص قاعدة المعرفة.");
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  const doSearch = async () => {
+    if (searchQuery.trim().length < 2) {
+      toast.error("اكتب كلمة للبحث.");
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      setSearchResults(
+        await runSearch({
+          data: {
+            query: searchQuery.trim(),
+            bag_id: searchBag ? searchBag : null,
+          },
+        }),
+      );
+    } catch {
+      toast.error("تعذر تنفيذ البحث.");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -201,6 +259,10 @@ function AdminPage() {
                   <p className="truncate font-semibold">{bag.title_ar}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {STATUS_LABEL[bag.status] ?? bag.status}
+                    {bag.status !== "ready" &&
+                      bag.status !== "uploaded" &&
+                      bag.status !== "failed" &&
+                      ` — ${bag.processing_progress}%`}
                     {bag.status === "ready" &&
                       ` — ${bag.total_pages} صفحة / ${bag.total_chunks} مقطع`}
                     {bag.error_message ? ` — ${bag.error_message}` : ""}
@@ -214,10 +276,14 @@ function AdminPage() {
                 >
                   {busyId === bag.id ? (
                     <Loader2 className="size-4 animate-spin" />
+                  ) : bag.status === "ready" || bag.status === "failed" ? (
+                    <RefreshCw className="size-4" />
                   ) : (
                     <Play className="size-4" />
                   )}
-                  معالجة
+                  {bag.status === "ready" || bag.status === "failed"
+                    ? "إعادة معالجة"
+                    : "معالجة"}
                 </Button>
                 <Button
                   size="sm"
@@ -235,6 +301,111 @@ function AdminPage() {
                 لا توجد حقائب بعد.
               </p>
             )}
+          </section>
+
+          <section className="surface-panel mt-6 space-y-4 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">حالة قاعدة المعرفة</h2>
+              <Button size="sm" variant="secondary" onClick={() => void checkHealth()}>
+                {healthLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Stethoscope className="size-4" />
+                )}
+                فحص قاعدة المعرفة
+              </Button>
+            </div>
+            {health && (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {[
+                    ["الحقائب", health.totals.bags],
+                    ["جاهزة", health.totals.ready],
+                    ["قيد المعالجة", health.totals.processing],
+                    ["فاشلة", health.totals.failed],
+                    ["الصفحات", health.totals.pages],
+                    ["المقاطع", health.totals.chunks],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-xl border px-3 py-2">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="text-lg font-bold">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p
+                  className={
+                    health.healthy
+                      ? "font-semibold text-success"
+                      : "font-semibold text-destructive"
+                  }
+                >
+                  {health.healthy ? "Healthy — كل شيء سليم" : "Needs Attention"}
+                </p>
+                {health.issues.length > 0 && (
+                  <ul className="list-disc space-y-1 pr-5 text-xs text-muted-foreground">
+                    {health.issues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                )}
+                {health.updatedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    آخر تحديث: {new Date(health.updatedAt).toLocaleString("ar")}
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="surface-panel mt-6 space-y-3 p-5">
+            <h2 className="font-semibold">اختبار البحث في المحتوى</h2>
+            <Textarea
+              dir="rtl"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="مثال: قبول الودائع"
+              className="min-h-20 resize-none"
+            />
+            <select
+              value={searchBag}
+              onChange={(e) => setSearchBag(e.target.value)}
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">كل الحقائب</option>
+              {(bagsQuery.data ?? [])
+                .filter((b) => b.status === "ready")
+                .map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.title_ar}
+                  </option>
+                ))}
+            </select>
+            <Button onClick={() => void doSearch()} disabled={searchLoading}>
+              {searchLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Search className="size-4" />
+              )}
+              بحث
+            </Button>
+            <div className="space-y-2">
+              {searchResults?.map((row) => (
+                <div key={row.id} className="rounded-xl border p-3 text-sm">
+                  <p className="font-medium">
+                    {row.bag_title} — الصفحة {row.page_number}
+                    <span className="mr-2 text-xs text-muted-foreground">
+                      درجة التطابق: {row.score}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {row.preview}…
+                  </p>
+                </div>
+              ))}
+              {searchResults?.length === 0 && (
+                <p className="text-sm text-muted-foreground">لا توجد نتائج.</p>
+              )}
+            </div>
           </section>
         </>
       )}
