@@ -90,6 +90,11 @@ export function ResultCard({
               </span>
             </div>
           )}
+          {result.source_excerpt && (
+            <blockquote className="rounded-xl border bg-background/70 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+              «{result.source_excerpt}…»
+            </blockquote>
+          )}
         </div>
       )}
 

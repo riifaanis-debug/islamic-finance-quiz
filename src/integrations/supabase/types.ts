@@ -55,14 +55,48 @@ export type Database = {
           },
         ]
       }
+      document_pages: {
+        Row: {
+          bag_id: string
+          created_at: string
+          id: string
+          page_number: number
+          page_text: string
+        }
+        Insert: {
+          bag_id: string
+          created_at?: string
+          id?: string
+          page_number: number
+          page_text?: string
+        }
+        Update: {
+          bag_id?: string
+          created_at?: string
+          id?: string
+          page_number?: number
+          page_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_pages_bag_id_fkey"
+            columns: ["bag_id"]
+            isOneToOne: false
+            referencedRelation: "training_bags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_history: {
         Row: {
+          answer_status: string | null
           answer_text: string | null
           confidence: number | null
           created_at: string
           detected_options: Json | null
           id: string
           image_url: string | null
+          input_type: string | null
           processing_time: number | null
           question_text: string | null
           question_type: string | null
@@ -71,12 +105,14 @@ export type Database = {
           source_page: number | null
         }
         Insert: {
+          answer_status?: string | null
           answer_text?: string | null
           confidence?: number | null
           created_at?: string
           detected_options?: Json | null
           id?: string
           image_url?: string | null
+          input_type?: string | null
           processing_time?: number | null
           question_text?: string | null
           question_type?: string | null
@@ -85,12 +121,14 @@ export type Database = {
           source_page?: number | null
         }
         Update: {
+          answer_status?: string | null
           answer_text?: string | null
           confidence?: number | null
           created_at?: string
           detected_options?: Json | null
           id?: string
           image_url?: string | null
+          input_type?: string | null
           processing_time?: number | null
           question_text?: string | null
           question_type?: string | null
@@ -103,36 +141,45 @@ export type Database = {
       training_bags: {
         Row: {
           created_at: string
+          description: string | null
           error_message: string | null
           file_name: string
           file_path: string | null
           id: string
+          processing_progress: number
           status: string
           title_ar: string
+          title_en: string | null
           total_chunks: number
           total_pages: number
           updated_at: string
         }
         Insert: {
           created_at?: string
+          description?: string | null
           error_message?: string | null
           file_name: string
           file_path?: string | null
           id?: string
+          processing_progress?: number
           status?: string
           title_ar: string
+          title_en?: string | null
           total_chunks?: number
           total_pages?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
+          description?: string | null
           error_message?: string | null
           file_name?: string
           file_path?: string | null
           id?: string
+          processing_progress?: number
           status?: string
           title_ar?: string
+          title_en?: string | null
           total_chunks?: number
           total_pages?: number
           updated_at?: string
@@ -172,18 +219,35 @@ export type Database = {
         }
         Returns: boolean
       }
-      keyword_chunks: {
-        Args: { match_count?: number; query_text: string }
-        Returns: {
-          bag_id: string
-          bag_title: string
-          content: string
-          id: string
-          page_number: number
-          rank: number
-          section_title: string
-        }[]
-      }
+      keyword_chunks:
+        | {
+            Args: { match_count?: number; query_text: string }
+            Returns: {
+              bag_id: string
+              bag_title: string
+              content: string
+              id: string
+              page_number: number
+              rank: number
+              section_title: string
+            }[]
+          }
+        | {
+            Args: {
+              bag_filter: string
+              match_count: number
+              query_text: string
+            }
+            Returns: {
+              bag_id: string
+              bag_title: string
+              content: string
+              id: string
+              page_number: number
+              rank: number
+              section_title: string
+            }[]
+          }
       match_chunks: {
         Args: {
           bag_filter?: string

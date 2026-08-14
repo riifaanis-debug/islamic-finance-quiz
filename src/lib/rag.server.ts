@@ -85,6 +85,8 @@ export async function retrieveChunks(
   admin: SupabaseAdmin,
   queryText: string,
   topK = 8,
+  bagId: string | null = null,
+  keepTop = 5,
 ): Promise<Chunk[]> {
   const [embedding] = await embedTexts([queryText]);
 
@@ -92,8 +94,13 @@ export async function retrieveChunks(
     admin.rpc("match_chunks", {
       query_embedding: embedding as unknown as string,
       match_count: topK,
-    }),
-    admin.rpc("keyword_chunks", { query_text: queryText, match_count: topK }),
+      bag_filter: bagId,
+    } as never),
+    admin.rpc("keyword_chunks", {
+      query_text: queryText,
+      match_count: topK,
+      bag_filter: bagId,
+    } as never),
   ]);
 
   const fused = new Map<string, Chunk>();
@@ -132,7 +139,19 @@ export async function retrieveChunks(
     }
   });
 
-  return [...fused.values()].sort((a, b) => b.score - a.score).slice(0, 5);
+  // Rerank: lexical overlap with the question/options boosts fused score.
+  const terms = queryText
+    .split(/\s+/)
+    .map((t) => t.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter((t) => t.length > 2);
+  for (const chunk of fused.values()) {
+    const hits = terms.filter((t) => chunk.content.includes(t)).length;
+    chunk.score += (hits / Math.max(terms.length, 1)) * 0.02;
+  }
+
+  return [...fused.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, keepTop);
 }
 
 const SYSTEM_PROMPT = `أنت مساعد متخصص حصريًا في الحقائب التدريبية المرفوعة إلى النظام في مجال المالية الإسلامية.
@@ -146,7 +165,9 @@ const SYSTEM_PROMPT = `أنت مساعد متخصص حصريًا في الحقا
 - التفسير يجب أن يكون جملة أو جملتين قصيرتين مستمدتين من نص المقطع.
 
 أعد JSON فقط بالبنية التالية:
-{"found":true|false,"question_type":"multiple_choice|true_false|open_question","answer_letter":"أ|ب|ج|د|هـ|null","answer_text":"نص الإجابة","is_true_false":true|false|null,"explanation":"...","source_bag":"...","source_page":3,"confidence":0.0-1.0}
+{"found":true|false,"question_type":"multiple_choice|true_false|open_question","answer_letter":"أ|ب|ج|د|هـ|null","answer_text":"نص الإجابة","is_true_false":true|false|null,"explanation":"...","evidence_index":1,"confidence":0.0-1.0}
+
+evidence_index هو رقم المقطع المرجعي الذي استندت إليه (كما هو مكتوب في «مقطع رقم»). لا تكتب اسم الحقيبة ولا رقم الصفحة إطلاقًا؛ النظام يستخرجهما من المقطع نفسه.
 
 في أسئلة صح/خطأ: is_true_false = true إذا كانت العبارة صحيحة، و false إذا كانت خاطئة، وanswer_text = "صح" أو "خطأ".
 في أسئلة الاختيار من متعدد: answer_letter هو حرف الخيار الصحيح كما ورد في السؤال، وanswer_text نص ذلك الخيار كاملًا.`;
@@ -165,6 +186,7 @@ export async function answerFromChunks(
     explanation: null,
     source_bag: null,
     source_page: null,
+    source_excerpt: null,
     confidence: 0,
     confidence_label: "low",
     found: false,
@@ -175,7 +197,7 @@ export async function answerFromChunks(
   const context = chunks
     .map(
       (c, i) =>
-        `<<مقطع ${i + 1}>>\nالحقيبة: ${c.bag_title}\nالصفحة: ${c.page_number}${
+        `<<مقطع رقم ${i + 1}>>\nالحقيبة: ${c.bag_title}\nالصفحة: ${c.page_number}${
           c.section_title ? `\nالقسم: ${c.section_title}` : ""
         }\nالنص: ${c.content}`,
     )
@@ -199,20 +221,28 @@ export async function answerFromChunks(
 
   const out = await chatJson<Partial<AnswerResult>>(messages);
 
-  const allowedBags = new Set(chunks.map((c) => c.bag_title));
-  const sourceBag =
-    out.source_bag && allowedBags.has(out.source_bag)
-      ? out.source_bag
-      : (chunks[0]?.bag_title ?? null);
-  const allowedPages = chunks
-    .filter((c) => c.bag_title === sourceBag)
-    .map((c) => c.page_number);
-  const sourcePage =
-    typeof out.source_page === "number" && allowedPages.includes(out.source_page)
-      ? out.source_page
-      : (allowedPages[0] ?? null);
+  // Source metadata never comes from the model: resolve it from the cited chunk.
+  const rawIndex = Number((out as { evidence_index?: unknown }).evidence_index);
+  const evidence =
+    Number.isFinite(rawIndex) && chunks[rawIndex - 1]
+      ? chunks[rawIndex - 1]!
+      : chunks[0]!;
+  const sourceBag = evidence.bag_title;
+  const sourcePage = evidence.page_number;
+  const sourceExcerpt = evidence.content.slice(0, 320).trim();
 
-  const confidence = Math.max(0, Math.min(1, Number(out.confidence ?? 0)));
+  const modelConfidence = Math.max(0, Math.min(1, Number(out.confidence ?? 0)));
+  // Blend model certainty with retrieval strength + evidence agreement.
+  const retrievalStrength = Math.min(1, (chunks[0]?.score ?? 0) / 0.04);
+  const agreement = chunks.filter((c) => c.bag_id === evidence.bag_id).length /
+    chunks.length;
+  const confidence = Math.max(
+    0,
+    Math.min(
+      1,
+      modelConfidence * 0.65 + retrievalStrength * 0.2 + agreement * 0.15,
+    ),
+  );
   const found = Boolean(out.found) && confidence >= 0.45 && !!out.answer_text;
 
   return {
@@ -225,6 +255,7 @@ export async function answerFromChunks(
     explanation: out.explanation ?? null,
     source_bag: found ? sourceBag : null,
     source_page: found ? sourcePage : null,
+    source_excerpt: found ? sourceExcerpt : null,
     confidence,
     confidence_label:
       confidence >= 0.75 ? "high" : confidence >= 0.5 ? "medium" : "low",

@@ -25,6 +25,7 @@ async function logHistory(
   >["supabaseAdmin"],
   result: AnswerResult,
   elapsed: number,
+  inputType: "text" | "image",
 ) {
   try {
     await admin.from("question_history").insert({
@@ -37,19 +38,25 @@ async function logHistory(
       source_page: result.source_page,
       confidence: result.confidence,
       processing_time: elapsed,
+      answer_status: result.found ? "answered" : "uncertain",
+      input_type: inputType,
     });
   } catch (error) {
     console.error("history log failed", error);
   }
 }
 
-async function runPipeline(questionText: string): Promise<AskResponse> {
+async function runPipeline(
+  questionText: string,
+  inputType: "text" | "image" = "text",
+): Promise<AskResponse> {
   const started = Date.now();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   const { count } = await supabaseAdmin
-    .from("document_chunks")
-    .select("id", { count: "exact", head: true });
+    .from("training_bags")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "ready");
   if (!count) return { ok: false, error: "no_knowledge" };
 
   const parsed = parseQuestion(questionText);
@@ -58,9 +65,9 @@ async function runPipeline(questionText: string): Promise<AskResponse> {
     ...Object.values(parsed.options),
   ].join(" ");
 
-  const chunks = await retrieveChunks(supabaseAdmin, searchText, 8);
+  const chunks = await retrieveChunks(supabaseAdmin, searchText, 12, null, 6);
   const result = await answerFromChunks(parsed, chunks);
-  await logHistory(supabaseAdmin, result, Date.now() - started);
+  await logHistory(supabaseAdmin, result, Date.now() - started, inputType);
   return { ok: true, result };
 }
 
@@ -114,7 +121,7 @@ export const askImage = createServerFn({ method: "POST" })
       const full = optionsText
         ? `${vision.question}\n${optionsText}`
         : vision.question;
-      return await runPipeline(full);
+      return await runPipeline(full, "image");
     } catch (error) {
       console.error("askImage failed", error);
       return { ok: false, error: "failed" };
