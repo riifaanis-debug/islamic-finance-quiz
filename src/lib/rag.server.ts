@@ -1,27 +1,7 @@
 import { embedTexts, chatJson, type ChatMessage } from "./ai.server";
 
-export type QuestionType = "multiple_choice" | "true_false" | "open_question";
-
-export type ParsedQuestion = {
-  question: string;
-  question_type: QuestionType;
-  options: Record<string, string>;
-};
-
-export type AnswerResult = {
-  question: string;
-  question_type: QuestionType;
-  options: Record<string, string>;
-  answer_letter: string | null;
-  answer_text: string;
-  is_true_false: boolean | null;
-  explanation: string | null;
-  source_bag: string | null;
-  source_page: number | null;
-  confidence: number;
-  confidence_label: "high" | "medium" | "low";
-  found: boolean;
-};
+export type { QuestionType, ParsedQuestion, AnswerResult } from "./types";
+import type { QuestionType, ParsedQuestion, AnswerResult } from "./types";
 
 const ARABIC_LETTERS = ["أ", "ب", "ج", "د", "هـ", "ه", "و"];
 const LATIN_LETTERS = ["A", "B", "C", "D", "E", "F"];
