@@ -14,16 +14,195 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      document_chunks: {
+        Row: {
+          bag_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          page_number: number
+          section_title: string | null
+        }
+        Insert: {
+          bag_id: string
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          page_number?: number
+          section_title?: string | null
+        }
+        Update: {
+          bag_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          page_number?: number
+          section_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_bag_id_fkey"
+            columns: ["bag_id"]
+            isOneToOne: false
+            referencedRelation: "training_bags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_history: {
+        Row: {
+          answer_text: string | null
+          confidence: number | null
+          created_at: string
+          detected_options: Json | null
+          id: string
+          image_url: string | null
+          processing_time: number | null
+          question_text: string | null
+          question_type: string | null
+          selected_answer: string | null
+          source_file: string | null
+          source_page: number | null
+        }
+        Insert: {
+          answer_text?: string | null
+          confidence?: number | null
+          created_at?: string
+          detected_options?: Json | null
+          id?: string
+          image_url?: string | null
+          processing_time?: number | null
+          question_text?: string | null
+          question_type?: string | null
+          selected_answer?: string | null
+          source_file?: string | null
+          source_page?: number | null
+        }
+        Update: {
+          answer_text?: string | null
+          confidence?: number | null
+          created_at?: string
+          detected_options?: Json | null
+          id?: string
+          image_url?: string | null
+          processing_time?: number | null
+          question_text?: string | null
+          question_type?: string | null
+          selected_answer?: string | null
+          source_file?: string | null
+          source_page?: number | null
+        }
+        Relationships: []
+      }
+      training_bags: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          file_name: string
+          file_path: string | null
+          id: string
+          status: string
+          title_ar: string
+          total_chunks: number
+          total_pages: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          file_name: string
+          file_path?: string | null
+          id?: string
+          status?: string
+          title_ar: string
+          total_chunks?: number
+          total_pages?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          file_name?: string
+          file_path?: string | null
+          id?: string
+          status?: string
+          title_ar?: string
+          total_chunks?: number
+          total_pages?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      keyword_chunks: {
+        Args: { match_count?: number; query_text: string }
+        Returns: {
+          bag_id: string
+          bag_title: string
+          content: string
+          id: string
+          page_number: number
+          rank: number
+          section_title: string
+        }[]
+      }
+      match_chunks: {
+        Args: {
+          bag_filter?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          bag_id: string
+          bag_title: string
+          content: string
+          id: string
+          page_number: number
+          section_title: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +329,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
