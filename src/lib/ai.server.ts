@@ -35,14 +35,19 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 
 type ContentBlock =
   | { type: "text"; text: string }
+  | { type: "file"; file: { filename: string; file_data: string } }
   | { type: "image_url"; image_url: { url: string } };
+
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string | ContentBlock[];
 };
 
-export async function chatJson<T>(messages: ChatMessage[]): Promise<T> {
+export async function chatJson<T>(
+  messages: ChatMessage[],
+  model: string = CHAT_MODEL,
+): Promise<T> {
   const res = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
     headers: {
@@ -50,8 +55,8 @@ export async function chatJson<T>(messages: ChatMessage[]): Promise<T> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: CHAT_MODEL,
-      reasoning_effort: "none",
+      model,
+      ...(model.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
       messages,
       response_format: { type: "json_object" },
     }),

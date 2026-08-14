@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Search,
   Stethoscope,
+  FileSearch,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,6 +29,8 @@ import {
   getAdminStatus,
   listBags,
   processBag,
+  getPagePreview,
+  type PagePreview,
 } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -49,6 +52,12 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
+const QUALITY_LABEL: Record<string, string> = {
+  high: "عالية",
+  medium: "متوسطة",
+  low: "منخفضة",
+};
+
 const STATUS_LABEL: Record<string, string> = {
   uploaded: "بانتظار المعالجة",
   extracting: "جاري استخراج النص",
@@ -69,6 +78,32 @@ function AdminPage() {
   const runProcess = useServerFn(processBag);
   const runHealth = useServerFn(knowledgeHealth);
   const runSearch = useServerFn(testSearch);
+  const runPreview = useServerFn(getPagePreview);
+
+  const [previewBag, setPreviewBag] = useState("");
+  const [previewPage, setPreviewPage] = useState("1");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [preview, setPreview] = useState<PagePreview | null>(null);
+
+  const loadPreview = async () => {
+    const page = Number(previewPage);
+    if (!previewBag || !Number.isFinite(page) || page < 1) {
+      toast.error("اختر الحقيبة ورقم الصفحة.");
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const result = await runPreview({
+        data: { bag_id: previewBag, page_number: page },
+      });
+      setPreview(result);
+      if (!result) toast.error("لا توجد بيانات لهذه الصفحة.");
+    } catch {
+      toast.error("تعذر جلب الصفحة.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const [health, setHealth] = useState<Awaited<
     ReturnType<typeof knowledgeHealth>
@@ -407,6 +442,81 @@ function AdminPage() {
               )}
             </div>
           </section>
+
+          <section className="surface-panel mt-6 space-y-3 p-5">
+            <h2 className="font-semibold">معاينة الصفحة المستخرجة</h2>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={previewBag}
+                onChange={(e) => setPreviewBag(e.target.value)}
+                className="h-10 min-w-40 flex-1 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">اختر الحقيبة</option>
+                {(bagsQuery.data ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.title_ar}
+                  </option>
+                ))}
+              </select>
+              <Input
+                type="number"
+                min={1}
+                value={previewPage}
+                onChange={(e) => setPreviewPage(e.target.value)}
+                placeholder="رقم الصفحة"
+                className="h-10 w-32"
+              />
+              <Button onClick={() => void loadPreview()} disabled={previewLoading}>
+                {previewLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <FileSearch className="size-4" />
+                )}
+                عرض
+              </Button>
+            </div>
+            {preview && (
+              <div className="space-y-3 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  الصفحة {preview.page_number} من {preview.total_pages} — جودة
+                  الاستخراج:{" "}
+                  <span
+                    className={
+                      preview.extraction_quality === "low"
+                        ? "font-semibold text-destructive"
+                        : "font-semibold"
+                    }
+                  >
+                    {QUALITY_LABEL[preview.extraction_quality] ??
+                      preview.extraction_quality}
+                  </span>{" "}
+                  — الطريقة:{" "}
+                  {preview.extraction_method === "vision"
+                    ? "قراءة بصرية"
+                    : "تحليل تخطيط"}
+                </p>
+                {preview.blocks.length > 0 ? (
+                  <div className="space-y-2">
+                    {preview.blocks.map((block: PagePreview["blocks"][number], i: number) => (
+                      <div key={i} className="rounded-xl border p-3">
+                        {block.title && (
+                          <p className="font-semibold">{block.title}</p>
+                        )}
+                        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                          {block.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap rounded-xl border p-3 text-xs leading-relaxed">
+                    {preview.structured_text || "لا يوجد نص."}
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
         </>
       )}
     </main>

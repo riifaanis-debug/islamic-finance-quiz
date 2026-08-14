@@ -17,6 +17,7 @@ export type Database = {
       document_chunks: {
         Row: {
           bag_id: string
+          block_index: number
           chunk_index: number
           content: string
           created_at: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           bag_id: string
+          block_index?: number
           chunk_index?: number
           content: string
           created_at?: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           bag_id?: string
+          block_index?: number
           chunk_index?: number
           content?: string
           created_at?: string
@@ -59,23 +62,38 @@ export type Database = {
         Row: {
           bag_id: string
           created_at: string
+          extraction_method: string
+          extraction_quality: string
           id: string
+          layout_blocks: Json
           page_number: number
           page_text: string
+          raw_text: string
+          structured_text: string
         }
         Insert: {
           bag_id: string
           created_at?: string
+          extraction_method?: string
+          extraction_quality?: string
           id?: string
+          layout_blocks?: Json
           page_number: number
           page_text?: string
+          raw_text?: string
+          structured_text?: string
         }
         Update: {
           bag_id?: string
           created_at?: string
+          extraction_method?: string
+          extraction_quality?: string
           id?: string
+          layout_blocks?: Json
           page_number?: number
           page_text?: string
+          raw_text?: string
+          structured_text?: string
         }
         Relationships: [
           {
