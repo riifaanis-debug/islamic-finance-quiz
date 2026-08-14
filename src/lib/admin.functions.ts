@@ -143,7 +143,7 @@ export const processBag = createServerFn({ method: "POST" })
     const {
       chunkLayoutPages,
       extractPdfLayout,
-      visionExtractPage,
+      visionExtractAll,
       embedInBatches,
     } = await import("./pdf.server");
 
@@ -177,16 +177,27 @@ export const processBag = createServerFn({ method: "POST" })
         }
       });
 
-      // Vision fallback only for pages whose layout parsing looked unreliable.
-      const weak = pages.filter((p) => p.quality === "low").slice(0, 40);
-      for (const page of weak) {
-        const rescued = await visionExtractPage(bytes, page.page_number);
-        if (rescued) pages[page.page_number - 1] = rescued;
+      // Vision fallback only for pages whose layout parsing looked unreliable
+      // (scrambled Arabic glyphs, image-only pages, ambiguous column order).
+      const weak = pages
+        .filter((p) => p.quality === "low")
+        .map((p) => p.page_number);
+      if (weak.length > 0) {
+        const rescued = await visionExtractAll(bytes, weak, {
+          onProgress: async (done, total) => {
+            await setStatus("extracting", {
+              processing_progress: 30 + Math.round((done / total) * 20),
+            });
+          },
+        });
+        for (const [pageNumber, page] of rescued) {
+          pages[pageNumber - 1] = page;
+        }
       }
 
       await setStatus("chunking", {
         total_pages: pages.length,
-        processing_progress: 35,
+        processing_progress: 52,
       });
 
       // Persist raw + structured text and layout blocks per real page number.
