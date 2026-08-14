@@ -112,7 +112,6 @@ export async function retrieveChunks(
     admin.rpc("match_chunks", {
       query_embedding: embedding as unknown as string,
       match_count: topK,
-      bag_filter: undefined,
     }),
     admin.rpc("keyword_chunks", { query_text: queryText, match_count: topK }),
   ]);
