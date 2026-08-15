@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, ImageUp, Loader2, Send, ScrollText } from "lucide-react";
@@ -11,7 +11,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { ResultCard } from "@/components/ResultCard";
 import { askImage, askQuestion } from "@/lib/ask.functions";
 import { toCompressedDataUrl } from "@/lib/image";
-import type { AnswerResult, AskResponse } from "@/lib/types";
+import type { AnswerResult, AskResponse, QuestionMode } from "@/lib/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,8 +42,29 @@ const PHASES = [
   "تم العثور على الإجابة.",
 ];
 
+const MODES: { value: QuestionMode; label: string }[] = [
+  { value: "true_false", label: "صح وخطأ" },
+  { value: "multiple_choice", label: "اختيارات" },
+  { value: "subjective", label: "موضوعي" },
+];
+
+const PLACEHOLDER: Record<QuestionMode, string> = {
+  true_false: "اكتب العبارة أو صوّرها…",
+  multiple_choice: "اكتب أو الصق السؤال والاختيارات هنا…",
+  subjective: "اكتب سؤالك هنا…",
+};
+
+const CAMERA_HINT: Record<QuestionMode, string> = {
+  true_false: "ضع العبارة داخل الإطار",
+  multiple_choice: "ضع السؤال وجميع الاختيارات داخل الإطار",
+  subjective: "ضع السؤال داخل الإطار",
+};
+
+const MODE_STORAGE_KEY = "question-mode";
+
 const ERROR_TEXT: Record<string, string> = {
   unreadable_image: "لم أتمكن من قراءة الصورة بوضوح.",
+  missing_options: "تأكد من ظهور السؤال وجميع الاختيارات في الصورة.",
   no_knowledge: "لم تُضف أي حقيبة تدريبية جاهزة بعد إلى قاعدة المعرفة.",
   failed: "تعذر تحليل السؤال، حاول مرة أخرى.",
 };
@@ -52,6 +73,7 @@ function Home() {
   const ask = useServerFn(askQuestion);
   const askImg = useServerFn(askImage);
 
+  const [mode, setMode] = useState<QuestionMode>("multiple_choice");
   const [question, setQuestion] = useState("");
   const [examMode, setExamMode] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -60,6 +82,16 @@ function Home() {
   const [result, setResult] = useState<AnswerResult | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem(MODE_STORAGE_KEY) as QuestionMode | null;
+    if (saved && MODES.some((m) => m.value === saved)) setMode(saved);
+  }, []);
+
+  const pickMode = (value: QuestionMode) => {
+    setMode(value);
+    sessionStorage.setItem(MODE_STORAGE_KEY, value);
+  };
 
   const run = async (fn: () => Promise<AskResponse>) => {
     setLoading(true);
@@ -88,12 +120,14 @@ function Home() {
       toast.error("اكتب السؤال أولًا.");
       return;
     }
-    void run(() => ask({ data: { question: question.trim() } }));
+    void run(() =>
+      ask({ data: { question: question.trim(), questionMode: mode } }),
+    );
   };
 
   const submitImage = (dataUrl: string) => {
     setCameraOpen(false);
-    void run(() => askImg({ data: { image: dataUrl } }));
+    void run(() => askImg({ data: { image: dataUrl, questionMode: mode } }));
   };
 
   const onFile = async (file: File | undefined) => {
@@ -129,11 +163,36 @@ function Home() {
       </section>
 
       <section className="surface-panel mt-6 p-4 sm:p-5">
+        <div className="mb-4">
+          <p className="mb-2 text-sm font-medium text-muted-foreground">
+            نوع السؤال
+          </p>
+          <div
+            role="radiogroup"
+            aria-label="نوع السؤال"
+            className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+          >
+            {MODES.map((item) => (
+              <Button
+                key={item.value}
+                type="button"
+                role="radio"
+                aria-checked={mode === item.value}
+                variant={mode === item.value ? "default" : "outline"}
+                className="w-full"
+                onClick={() => pickMode(item.value)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         <Textarea
           dir="rtl"
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder="اكتب أو الصق السؤال والاختيارات هنا…"
+          placeholder={PLACEHOLDER[mode]}
           className="min-h-40 resize-none border-0 bg-transparent px-1 text-base leading-8 shadow-none focus-visible:ring-0 sm:text-lg"
         />
 
@@ -245,6 +304,7 @@ function Home() {
         open={cameraOpen}
         onClose={() => setCameraOpen(false)}
         onCapture={submitImage}
+        hint={CAMERA_HINT[mode]}
       />
     </main>
   );
