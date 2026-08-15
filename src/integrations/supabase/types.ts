@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       document_chunks: {
         Row: {
           bag_id: string
@@ -99,6 +120,86 @@ export type Database = {
           {
             foreignKeyName: "document_pages_bag_id_fkey"
             columns: ["bag_id"]
+            isOneToOne: false
+            referencedRelation: "training_bags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_bank: {
+        Row: {
+          confidence: number | null
+          correct_answer_label: string | null
+          correct_answer_text: string
+          created_at: string
+          explanation: string | null
+          first_seen_at: string
+          id: string
+          input_type: string
+          last_seen_at: string
+          normalized_text: string
+          options: Json | null
+          original_image_path: string | null
+          question_mode: string
+          question_text: string
+          source_bag_id: string | null
+          source_bag_name: string | null
+          source_page: number | null
+          source_pages: Json | null
+          times_asked: number
+          updated_at: string
+          verification_status: string
+        }
+        Insert: {
+          confidence?: number | null
+          correct_answer_label?: string | null
+          correct_answer_text?: string
+          created_at?: string
+          explanation?: string | null
+          first_seen_at?: string
+          id?: string
+          input_type?: string
+          last_seen_at?: string
+          normalized_text: string
+          options?: Json | null
+          original_image_path?: string | null
+          question_mode: string
+          question_text: string
+          source_bag_id?: string | null
+          source_bag_name?: string | null
+          source_page?: number | null
+          source_pages?: Json | null
+          times_asked?: number
+          updated_at?: string
+          verification_status?: string
+        }
+        Update: {
+          confidence?: number | null
+          correct_answer_label?: string | null
+          correct_answer_text?: string
+          created_at?: string
+          explanation?: string | null
+          first_seen_at?: string
+          id?: string
+          input_type?: string
+          last_seen_at?: string
+          normalized_text?: string
+          options?: Json | null
+          original_image_path?: string | null
+          question_mode?: string
+          question_text?: string
+          source_bag_id?: string | null
+          source_bag_name?: string | null
+          source_page?: number | null
+          source_pages?: Json | null
+          times_asked?: number
+          updated_at?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_source_bag_id_fkey"
+            columns: ["source_bag_id"]
             isOneToOne: false
             referencedRelation: "training_bags"
             referencedColumns: ["id"]
@@ -285,6 +386,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      normalize_question_text: { Args: { _t: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"

@@ -22,6 +22,7 @@ const textSchema = z.object({
 const imageSchema = z.object({
   image: z.string().min(100).max(12_000_000),
   questionMode: modeSchema,
+  source: z.enum(["camera", "image_upload"]).default("camera"),
 });
 
 async function logHistory(
@@ -57,6 +58,7 @@ async function runPipeline(
   questionText: string,
   mode: QuestionMode,
   inputType: "text" | "image" = "text",
+  bankInput: "text" | "camera" | "image_upload" = "text",
 ): Promise<AskResponse> {
   const started = Date.now();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -76,6 +78,8 @@ async function runPipeline(
   const chunks = await retrieveChunks(supabaseAdmin, searchText, 12, null, 6);
   const result = await answerFromChunks(parsed, chunks);
   await logHistory(supabaseAdmin, result, Date.now() - started, inputType, mode);
+  const { saveToBank } = await import("./bank.server");
+  await saveToBank(supabaseAdmin, result, mode, bankInput);
   return { ok: true, result };
 }
 
@@ -161,7 +165,7 @@ export const askImage = createServerFn({ method: "POST" })
           ? `${vision.question}\n${options.map(([k, v]) => `${k}) ${v}`).join("\n")}`
           : vision.question;
 
-      return await runPipeline(full, mode, "image");
+      return await runPipeline(full, mode, "image", data.source);
     } catch (error) {
       console.error("askImage failed", error);
       return { ok: false, error: "failed" };

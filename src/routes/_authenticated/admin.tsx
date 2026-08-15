@@ -232,6 +232,12 @@ function AdminPage() {
     <main className="mx-auto w-full max-w-3xl px-4 py-8">
       <header className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold">إدارة الحقائب التدريبية</h1>
+        <a
+          href="/question-bank"
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          بنك الأسئلة
+        </a>
         <Button
           variant="ghost"
           size="sm"
