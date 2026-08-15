@@ -125,15 +125,20 @@ function Home() {
     );
   };
 
-  const submitImage = (dataUrl: string) => {
+  const submitImage = (
+    dataUrl: string,
+    source: "camera" | "image_upload" = "camera",
+  ) => {
     setCameraOpen(false);
-    void run(() => askImg({ data: { image: dataUrl, questionMode: mode } }));
+    void run(() =>
+      askImg({ data: { image: dataUrl, questionMode: mode, source } }),
+    );
   };
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     try {
-      submitImage(await toCompressedDataUrl(file));
+      submitImage(await toCompressedDataUrl(file), "image_upload");
     } catch {
       toast.error(ERROR_TEXT["unreadable_image"]!);
     }
