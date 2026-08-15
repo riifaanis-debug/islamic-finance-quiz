@@ -57,6 +57,7 @@ async function runPipeline(
   questionText: string,
   mode: QuestionMode,
   inputType: "text" | "image" = "text",
+  bankInput: "text" | "camera" | "image_upload" = "text",
 ): Promise<AskResponse> {
   const started = Date.now();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -76,6 +77,8 @@ async function runPipeline(
   const chunks = await retrieveChunks(supabaseAdmin, searchText, 12, null, 6);
   const result = await answerFromChunks(parsed, chunks);
   await logHistory(supabaseAdmin, result, Date.now() - started, inputType, mode);
+  const { saveToBank } = await import("./bank.server");
+  await saveToBank(supabaseAdmin, result, mode, bankInput);
   return { ok: true, result };
 }
 
