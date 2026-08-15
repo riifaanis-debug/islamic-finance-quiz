@@ -128,11 +128,13 @@ export type Database = {
       }
       question_bank: {
         Row: {
+          answer_origin: string
           confidence: number | null
           correct_answer_label: string | null
           correct_answer_text: string
           created_at: string
           explanation: string | null
+          external_sources: Json | null
           first_seen_at: string
           id: string
           input_type: string
@@ -151,11 +153,13 @@ export type Database = {
           verification_status: string
         }
         Insert: {
+          answer_origin?: string
           confidence?: number | null
           correct_answer_label?: string | null
           correct_answer_text?: string
           created_at?: string
           explanation?: string | null
+          external_sources?: Json | null
           first_seen_at?: string
           id?: string
           input_type?: string
@@ -174,11 +178,13 @@ export type Database = {
           verification_status?: string
         }
         Update: {
+          answer_origin?: string
           confidence?: number | null
           correct_answer_label?: string | null
           correct_answer_text?: string
           created_at?: string
           explanation?: string | null
+          external_sources?: Json | null
           first_seen_at?: string
           id?: string
           input_type?: string
@@ -208,6 +214,7 @@ export type Database = {
       }
       question_history: {
         Row: {
+          answer_origin: string | null
           answer_status: string | null
           answer_text: string | null
           confidence: number | null
@@ -225,6 +232,7 @@ export type Database = {
           source_page: number | null
         }
         Insert: {
+          answer_origin?: string | null
           answer_status?: string | null
           answer_text?: string | null
           confidence?: number | null
@@ -242,6 +250,7 @@ export type Database = {
           source_page?: number | null
         }
         Update: {
+          answer_origin?: string | null
           answer_status?: string | null
           answer_text?: string | null
           confidence?: number | null
