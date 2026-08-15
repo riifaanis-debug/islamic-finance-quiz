@@ -19,6 +19,8 @@ export type BankRow = {
   confidence: number | null;
   input_type: string;
   verification_status: string;
+  answer_origin: string | null;
+  external_sources: { title: string; url: string; snippet: string | null }[] | null;
   times_asked: number;
   first_seen_at: string;
   last_seen_at: string;

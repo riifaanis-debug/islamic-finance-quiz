@@ -52,8 +52,11 @@ export async function saveToBank(
     if (!normalized) return;
 
     const answerText = answerTextOf(result, mode);
+    const fromBags = result.answer_origin === "training_bags";
     const verification =
-      result.found && result.confidence >= 0.75 ? "auto" : "needs_review";
+      fromBags && result.found && result.confidence >= 0.75
+        ? "auto"
+        : "needs_review";
 
     const { data: existing } = await admin
       .from("question_bank")
@@ -82,6 +85,8 @@ export async function saveToBank(
         patch["source_page"] = result.source_page;
         patch["confidence"] = result.confidence;
         patch["verification_status"] = verification;
+        patch["answer_origin"] = result.answer_origin;
+        patch["external_sources"] = result.external_sources;
       }
       await admin
         .from("question_bank")
@@ -106,6 +111,8 @@ export async function saveToBank(
       input_type: inputType,
       original_image_path: originalImagePath,
       verification_status: verification,
+      answer_origin: result.answer_origin,
+      external_sources: result.external_sources,
     });
   } catch (error) {
     console.error("question bank save failed", error);
