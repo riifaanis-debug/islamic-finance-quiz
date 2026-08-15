@@ -116,6 +116,7 @@ export type Database = {
           image_url: string | null
           input_type: string | null
           processing_time: number | null
+          question_mode: string | null
           question_text: string | null
           question_type: string | null
           selected_answer: string | null
@@ -132,6 +133,7 @@ export type Database = {
           image_url?: string | null
           input_type?: string | null
           processing_time?: number | null
+          question_mode?: string | null
           question_text?: string | null
           question_type?: string | null
           selected_answer?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           image_url?: string | null
           input_type?: string | null
           processing_time?: number | null
+          question_mode?: string | null
           question_text?: string | null
           question_type?: string | null
           selected_answer?: string | null
