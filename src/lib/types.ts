@@ -1,3 +1,5 @@
+export type QuestionMode = "true_false" | "multiple_choice" | "subjective";
+
 export type QuestionType = "multiple_choice" | "true_false" | "open_question";
 
 export type ParsedQuestion = {
@@ -24,7 +26,10 @@ export type AnswerResult = {
 
 export type AskResponse =
   | { ok: true; result: AnswerResult }
-  | { ok: false; error: "unreadable_image" | "no_knowledge" | "failed" };
+  | {
+      ok: false;
+      error: "unreadable_image" | "no_knowledge" | "failed" | "missing_options";
+    };
 
 export const BAG_TITLES = [
   "مبادئ المصرفية الإسلامية",

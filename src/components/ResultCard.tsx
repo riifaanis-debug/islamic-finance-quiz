@@ -54,6 +54,7 @@ export function ResultCard({
         <p className="text-2xl font-bold leading-snug sm:text-3xl">
           {result.answer_text}
         </p>
+        {result.question_type !== "open_question" && (
         <span
           className={
             positive
@@ -64,6 +65,7 @@ export function ResultCard({
         >
           {positive ? <Check className="size-5" /> : <X className="size-5" />}
         </span>
+        )}
       </div>
 
       {detailsVisible && (
