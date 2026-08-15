@@ -21,11 +21,11 @@ export function ResultCard({
 }) {
   const [sourceOpen, setSourceOpen] = useState(false);
 
-  if (!result.found) {
+  if (!result.found && !result.answer_text) {
     return (
       <div className="surface-panel animate-rise p-6 text-center">
         <p className="text-lg font-semibold">
-          لم أجد إجابة مؤكدة في الحقائب التدريبية.
+          تعذّر ترجيح إجابة لهذا السؤال.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
           جرّب إعادة صياغة السؤال أو إرفاق الخيارات كاملة.
@@ -37,13 +37,19 @@ export function ResultCard({
   const isTrueFalse = result.question_type === "true_false";
   const positive = isTrueFalse ? result.is_true_false !== false : true;
   const detailsVisible = examMode ? sourceOpen : showExplanation;
+  const isFallback = result.answer_status === "fallback";
+  const lowConfidence = isFallback && result.confidence_label === "low";
+  const originText =
+    result.answer_origin === "web"
+      ? "مصادر خارجية من الإنترنت"
+      : "المعرفة العامة";
 
   return (
     <div className="surface-panel animate-rise overflow-hidden">
       <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
-        {!examMode && (
+        {(!examMode || isFallback) && (
           <span className="text-xs font-medium tracking-wide text-muted-foreground">
-            الإجابة الصحيحة
+            {isFallback ? "الإجابة الأرجح" : "الإجابة الصحيحة"}
           </span>
         )}
         {result.answer_letter && !isTrueFalse && (
@@ -54,7 +60,7 @@ export function ResultCard({
         <p className="text-2xl font-bold leading-snug sm:text-3xl">
           {result.answer_text}
         </p>
-        {result.question_type !== "open_question" && (
+        {result.question_type !== "open_question" && !isFallback && (
         <span
           className={
             positive
@@ -67,6 +73,46 @@ export function ResultCard({
         </span>
         )}
       </div>
+
+      {isFallback && (
+        <div className="border-t border-warning/40 bg-warning/10 px-6 py-4 text-right text-sm">
+          <p className="flex items-start gap-2 font-medium text-foreground">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <span>
+              {lowConfidence
+                ? "الثقة في هذه الإجابة منخفضة، ولم يتم العثور على تأكيد لها داخل الحقائب التدريبية."
+                : `لم أجد إجابة مؤكدة لهذا السؤال داخل الحقائب التدريبية، وتم اختيار هذه الإجابة باعتبارها الأرجح اعتمادًا على ${originText}.`}
+            </span>
+          </p>
+          {!examMode && result.explanation && (
+            <p className="mt-2 leading-relaxed text-muted-foreground">
+              {result.explanation}
+            </p>
+          )}
+          {!examMode && result.external_sources?.length ? (
+            <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+              <p className="font-semibold text-secondary-foreground">
+                المصدر الخارجي:
+              </p>
+              {result.external_sources.map((s) => (
+                <a
+                  key={s.url}
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block truncate underline"
+                >
+                  {s.title}
+                </a>
+              ))}
+            </div>
+          ) : null}
+          <p className="mt-2 text-xs text-muted-foreground">
+            درجة الثقة المرجّحة: {CONFIDENCE_LABEL[result.confidence_label]}
+          </p>
+        </div>
+      )}
+
 
       {detailsVisible && (
         <div className="space-y-4 border-t bg-secondary/40 px-6 py-5 text-sm">
