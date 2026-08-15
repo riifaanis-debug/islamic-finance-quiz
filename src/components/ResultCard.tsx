@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Check, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { AnswerResult } from "@/lib/types";
@@ -114,7 +114,7 @@ export function ResultCard({
       )}
 
 
-      {detailsVisible && (
+      {detailsVisible && !isFallback && (
         <div className="space-y-4 border-t bg-secondary/40 px-6 py-5 text-sm">
           {result.explanation && (
             <div>
@@ -146,7 +146,7 @@ export function ResultCard({
         </div>
       )}
 
-      {examMode && !sourceOpen && (
+      {examMode && !sourceOpen && !isFallback && (
         <div className="border-t px-6 py-3 text-center">
           <Button variant="ghost" size="sm" onClick={() => setSourceOpen(true)}>
             عرض المصدر
