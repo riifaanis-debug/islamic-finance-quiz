@@ -56,6 +56,20 @@ const TABS: { key: Mode; label: string }[] = [
   { key: "all", label: "الكل" },
 ];
 
+const ORIGIN_LABEL: Record<string, string> = {
+  training_bags: "موثق من الحقائب",
+  model_knowledge: "إجابة مرجحة",
+  web: "إجابة خارجية",
+};
+
+const ORIGIN_CLASS: Record<string, string> = {
+  training_bags:
+    "inline-block rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success",
+  model_knowledge:
+    "inline-block rounded-full bg-warning/20 px-3 py-1 text-xs font-medium text-warning-foreground",
+  web: "inline-block rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground",
+};
+
 const VERIFY_LABEL: Record<string, string> = {
   auto: "تلقائي",
   verified: "موثّق",
@@ -535,8 +549,14 @@ function QuestionBankPage() {
                       </p>
                     ))}
                   <p className="font-medium text-primary">
-                    الإجابة الصحيحة: {answerOf(row)}
+                    {row.answer_origin && row.answer_origin !== "training_bags"
+                      ? "الإجابة الأرجح: "
+                      : "الإجابة الصحيحة: "}
+                    {answerOf(row)}
                   </p>
+                  <span className={ORIGIN_CLASS[row.answer_origin ?? "training_bags"]}>
+                    {ORIGIN_LABEL[row.answer_origin ?? "training_bags"]}
+                  </span>
                   {row.explanation && (
                     <p className="text-xs text-muted-foreground">{row.explanation}</p>
                   )}
