@@ -8,6 +8,14 @@ export type ParsedQuestion = {
   options: Record<string, string>;
 };
 
+export type ExternalSource = {
+  title: string;
+  url: string;
+  snippet: string | null;
+};
+
+export type AnswerOrigin = "training_bags" | "model_knowledge" | "web";
+
 export type AnswerResult = {
   question: string;
   question_type: QuestionType;
@@ -23,7 +31,12 @@ export type AnswerResult = {
   confidence: number;
   confidence_label: "high" | "medium" | "low";
   found: boolean;
+  answer_status: "answered" | "fallback";
+  answer_origin: AnswerOrigin;
+  warning: string | null;
+  external_sources: ExternalSource[] | null;
 };
+
 
 export type AskResponse =
   | { ok: true; result: AnswerResult }
