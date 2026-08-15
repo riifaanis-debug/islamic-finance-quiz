@@ -212,7 +212,12 @@ export async function answerFromChunks(
     confidence: 0,
     confidence_label: "low",
     found: false,
+    answer_status: "answered",
+    answer_origin: "training_bags",
+    warning: null,
+    external_sources: null,
   };
+
 
   if (chunks.length === 0) return base;
 
