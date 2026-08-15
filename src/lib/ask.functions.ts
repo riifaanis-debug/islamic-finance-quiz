@@ -76,12 +76,24 @@ async function runPipeline(
   ].join(" ");
 
   const chunks = await retrieveChunks(supabaseAdmin, searchText, 12, null, 6);
-  const result = await answerFromChunks(parsed, chunks);
+  let result = await answerFromChunks(parsed, chunks);
+
+  // Training bags always win. Only when they fail do we fall back.
+  if (!result.found) {
+    const { fallbackAnswer } = await import("./fallback.server");
+    try {
+      result = await fallbackAnswer(result, parsed);
+    } catch (error) {
+      console.error("fallback failed", error);
+    }
+  }
+
   await logHistory(supabaseAdmin, result, Date.now() - started, inputType, mode);
   const { saveToBank } = await import("./bank.server");
   await saveToBank(supabaseAdmin, result, mode, bankInput);
   return { ok: true, result };
 }
+
 
 export const askQuestion = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => textSchema.parse(data))
