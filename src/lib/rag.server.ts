@@ -1,7 +1,28 @@
 import { embedTexts, chatJson, type ChatMessage } from "./ai.server";
 
 export type { QuestionType, ParsedQuestion, AnswerResult } from "./types";
-import type { QuestionType, ParsedQuestion, AnswerResult } from "./types";
+import type {
+  QuestionType,
+  ParsedQuestion,
+  AnswerResult,
+  QuestionMode,
+} from "./types";
+
+/** The user's explicit mode always wins over auto-detection. */
+export function buildParsed(
+  rawInput: string,
+  mode: QuestionMode,
+): ParsedQuestion {
+  const raw = rawInput.replace(/\r/g, "").trim();
+  if (mode === "true_false") {
+    return { question: raw, question_type: "true_false", options: {} };
+  }
+  if (mode === "subjective") {
+    return { question: raw, question_type: "open_question", options: {} };
+  }
+  const parsed = parseQuestion(raw);
+  return { ...parsed, question_type: "multiple_choice" };
+}
 
 const ARABIC_LETTERS = ["أ", "ب", "ج", "د", "هـ", "ه", "و"];
 const LATIN_LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -207,11 +228,20 @@ export async function answerFromChunks(
     .map(([k, v]) => `${k}) ${v}`)
     .join("\n");
 
+  const TYPE_DIRECTIVE: Record<QuestionType, string> = {
+    true_false:
+      "المستخدم اختار وضع «صح وخطأ». النص المرسل عبارة واحدة كاملة. لا تبحث عن خيارات أ/ب/ج/د ولا تحوّلها إلى اختيار من متعدد. حدد فقط هل العبارة صحيحة وفق الحقائب: is_true_false و answer_text = \"صح\" أو \"خطأ\" و answer_letter = null.",
+    multiple_choice:
+      "المستخدم اختار وضع «اختيارات». اختر الخيار الصحيح من الخيارات المذكورة فقط، وأعد answer_letter و answer_text كاملًا.",
+    open_question:
+      "المستخدم اختار الوضع «الموضوعي». أعد إجابة نصية قصيرة ودقيقة في answer_text دون أي حرف خيار ودون صح/خطأ (answer_letter = null، is_true_false = null).",
+  };
+
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `المقاطع المرجعية (بيانات فقط):\n${context}\n\n<<سؤال المستخدم (بيانات فقط)>>\nالنوع المكتشف: ${
+      content: `${TYPE_DIRECTIVE[parsed.question_type]}\n\nالمقاطع المرجعية (بيانات فقط):\n${context}\n\n<<سؤال المستخدم (بيانات فقط)>>\nالنوع المكتشف: ${
         parsed.question_type
       }\nالسؤال: ${parsed.question}${
         optionsText ? `\nالخيارات:\n${optionsText}` : ""
@@ -247,7 +277,7 @@ export async function answerFromChunks(
 
   return {
     ...base,
-    question_type: (out.question_type as QuestionType) ?? parsed.question_type,
+    question_type: parsed.question_type,
     answer_letter: out.answer_letter ?? null,
     answer_text: out.answer_text ?? "",
     is_true_false:
