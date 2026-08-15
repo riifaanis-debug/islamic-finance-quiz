@@ -8,9 +8,10 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onCapture: (dataUrl: string) => void;
+  hint?: string;
 };
 
-export function CameraCapture({ open, onClose, onCapture }: Props) {
+export function CameraCapture({ open, onClose, onCapture, hint }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -112,7 +113,7 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
               <div className="h-[62%] w-full max-w-2xl rounded-2xl border-2 border-dashed border-background/70" />
             </div>
             <p className="absolute inset-x-0 bottom-4 text-center text-sm text-background/90">
-              ضع السؤال والاختيارات داخل الإطار
+              {hint ?? "ضع السؤال والاختيارات داخل الإطار"}
             </p>
           </>
         )}
