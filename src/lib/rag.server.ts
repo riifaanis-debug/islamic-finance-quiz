@@ -206,6 +206,7 @@ export async function answerFromChunks(
     is_true_false: null,
     explanation: null,
     source_bag: null,
+    source_bag_id: null,
     source_page: null,
     source_excerpt: null,
     confidence: 0,
