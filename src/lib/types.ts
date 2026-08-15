@@ -17,6 +17,7 @@ export type AnswerResult = {
   is_true_false: boolean | null;
   explanation: string | null;
   source_bag: string | null;
+  source_bag_id: string | null;
   source_page: number | null;
   source_excerpt: string | null;
   confidence: number;
