@@ -83,7 +83,10 @@ export async function saveToBank(
         patch["confidence"] = result.confidence;
         patch["verification_status"] = verification;
       }
-      await admin.from("question_bank").update(patch).eq("id", row["id"]);
+      await admin
+        .from("question_bank")
+        .update(patch as never)
+        .eq("id", String(row["id"]));
       return;
     }
 
