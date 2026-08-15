@@ -46,9 +46,11 @@ async function logHistory(
       source_page: result.source_page,
       confidence: result.confidence,
       processing_time: elapsed,
-      answer_status: result.found ? "answered" : "uncertain",
+      answer_status: result.answer_status === "fallback" ? "fallback" : "answered",
+      answer_origin: result.answer_origin,
       input_type: inputType,
     });
+
   } catch (error) {
     console.error("history log failed", error);
   }
