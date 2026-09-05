@@ -39,10 +39,15 @@ export type AnswerResult = {
 
 
 export type AskResponse =
-  | { ok: true; result: AnswerResult }
+  | { ok: true; results: AnswerResult[] }
   | {
       ok: false;
-      error: "unreadable_image" | "no_knowledge" | "failed" | "missing_options";
+      error:
+        | "unreadable_image"
+        | "no_knowledge"
+        | "failed"
+        | "missing_options"
+        | "no_questions_found";
     };
 
 export const BAG_TITLES = [
