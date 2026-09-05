@@ -273,13 +273,37 @@ function Home() {
           </div>
         )}
 
-        {!loading && result && (
+        {!loading && results.length > 0 && (
           <>
-            <ResultCard
-              result={result}
-              examMode={examMode}
-              showExplanation={showExplanation}
-            />
+            {results.length > 1 && (
+              <div className="surface-panel mb-4 flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                <span className="font-medium">
+                  تم تحليل {results.length} أسئلة
+                </span>
+                <span className="text-muted-foreground">
+                  {results.filter((r) => r.answer_status !== "fallback").length}{" "}
+                  مؤكدة من الحقائب •{" "}
+                  {results.filter((r) => r.answer_status === "fallback").length}{" "}
+                  مرجّحة
+                </span>
+              </div>
+            )}
+            <div className="space-y-5">
+              {results.map((item, index) => (
+                <div key={`${index}-${item.question}`}>
+                  {results.length > 1 && (
+                    <p className="mb-2 text-sm font-medium text-muted-foreground">
+                      السؤال {index + 1} من {results.length} — {item.question}
+                    </p>
+                  )}
+                  <ResultCard
+                    result={item}
+                    examMode={examMode}
+                    showExplanation={showExplanation}
+                  />
+                </div>
+              ))}
+            </div>
             <div className="mt-4 flex justify-center">
               <Button variant="secondary" onClick={() => setCameraOpen(true)}>
                 <Camera className="size-4" />
@@ -289,7 +313,8 @@ function Home() {
           </>
         )}
 
-        {!loading && !result && (
+        {!loading && results.length === 0 && (
+
           <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
             {[
               "الصق سؤال اختيار من متعدد",
