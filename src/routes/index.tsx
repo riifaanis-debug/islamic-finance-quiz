@@ -66,6 +66,7 @@ const ERROR_TEXT: Record<string, string> = {
   unreadable_image: "لم أتمكن من قراءة الصورة بوضوح.",
   missing_options: "تأكد من ظهور السؤال وجميع الاختيارات في الصورة.",
   no_knowledge: "لم تُضف أي حقيبة تدريبية جاهزة بعد إلى قاعدة المعرفة.",
+  no_questions_found: "لم أعثر على سؤال واضح في المحتوى المرسل.",
   failed: "تعذر تحليل السؤال، حاول مرة أخرى.",
 };
 
@@ -79,7 +80,7 @@ function Home() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState(0);
-  const [result, setResult] = useState<AnswerResult | null>(null);
+  const [results, setResults] = useState<AnswerResult[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -95,14 +96,14 @@ function Home() {
 
   const run = async (fn: () => Promise<AskResponse>) => {
     setLoading(true);
-    setResult(null);
+    setResults([]);
     setPhase(0);
     const timer1 = setTimeout(() => setPhase(1), 900);
     const timer2 = setTimeout(() => setPhase(2), 4500);
     try {
       const response = await fn();
       if (response.ok) {
-        setResult(response.result);
+        setResults(response.results);
       } else {
         toast.error(ERROR_TEXT[response.error] ?? ERROR_TEXT["failed"]!);
       }
@@ -114,6 +115,7 @@ function Home() {
       setLoading(false);
     }
   };
+
 
   const submitText = () => {
     if (question.trim().length < 3) {
