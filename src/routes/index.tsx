@@ -66,6 +66,7 @@ const ERROR_TEXT: Record<string, string> = {
   unreadable_image: "لم أتمكن من قراءة الصورة بوضوح.",
   missing_options: "تأكد من ظهور السؤال وجميع الاختيارات في الصورة.",
   no_knowledge: "لم تُضف أي حقيبة تدريبية جاهزة بعد إلى قاعدة المعرفة.",
+  no_questions_found: "لم أعثر على سؤال واضح في المحتوى المرسل.",
   failed: "تعذر تحليل السؤال، حاول مرة أخرى.",
 };
 
@@ -79,7 +80,7 @@ function Home() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState(0);
-  const [result, setResult] = useState<AnswerResult | null>(null);
+  const [results, setResults] = useState<AnswerResult[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -95,14 +96,14 @@ function Home() {
 
   const run = async (fn: () => Promise<AskResponse>) => {
     setLoading(true);
-    setResult(null);
+    setResults([]);
     setPhase(0);
     const timer1 = setTimeout(() => setPhase(1), 900);
     const timer2 = setTimeout(() => setPhase(2), 4500);
     try {
       const response = await fn();
       if (response.ok) {
-        setResult(response.result);
+        setResults(response.results);
       } else {
         toast.error(ERROR_TEXT[response.error] ?? ERROR_TEXT["failed"]!);
       }
@@ -114,6 +115,7 @@ function Home() {
       setLoading(false);
     }
   };
+
 
   const submitText = () => {
     if (question.trim().length < 3) {
@@ -271,13 +273,37 @@ function Home() {
           </div>
         )}
 
-        {!loading && result && (
+        {!loading && results.length > 0 && (
           <>
-            <ResultCard
-              result={result}
-              examMode={examMode}
-              showExplanation={showExplanation}
-            />
+            {results.length > 1 && (
+              <div className="surface-panel mb-4 flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                <span className="font-medium">
+                  تم تحليل {results.length} أسئلة
+                </span>
+                <span className="text-muted-foreground">
+                  {results.filter((r) => r.answer_status !== "fallback").length}{" "}
+                  مؤكدة من الحقائب •{" "}
+                  {results.filter((r) => r.answer_status === "fallback").length}{" "}
+                  مرجّحة
+                </span>
+              </div>
+            )}
+            <div className="space-y-5">
+              {results.map((item, index) => (
+                <div key={`${index}-${item.question}`}>
+                  {results.length > 1 && (
+                    <p className="mb-2 text-sm font-medium text-muted-foreground">
+                      السؤال {index + 1} من {results.length} — {item.question}
+                    </p>
+                  )}
+                  <ResultCard
+                    result={item}
+                    examMode={examMode}
+                    showExplanation={showExplanation}
+                  />
+                </div>
+              ))}
+            </div>
             <div className="mt-4 flex justify-center">
               <Button variant="secondary" onClick={() => setCameraOpen(true)}>
                 <Camera className="size-4" />
@@ -287,7 +313,8 @@ function Home() {
           </>
         )}
 
-        {!loading && !result && (
+        {!loading && results.length === 0 && (
+
           <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
             {[
               "الصق سؤال اختيار من متعدد",
