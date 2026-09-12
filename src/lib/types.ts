@@ -47,7 +47,9 @@ export type AskResponse =
         | "no_knowledge"
         | "failed"
         | "missing_options"
-        | "no_questions_found";
+        | "no_questions_found"
+        | "no_credits"
+        | "rate_limit";
     };
 
 export const BAG_TITLES = [
