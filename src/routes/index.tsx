@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Camera, ImageUp, Loader2, Send, ScrollText } from "lucide-react";
+import {
+  Camera,
+  FileUp,
+  ImageUp,
+  Loader2,
+  Send,
+  ScrollText,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CameraCapture } from "@/components/CameraCapture";
 import { ResultCard } from "@/components/ResultCard";
-import { askImage, askQuestion } from "@/lib/ask.functions";
+import { askImage, askPdf, askQuestion } from "@/lib/ask.functions";
 import { toCompressedDataUrl } from "@/lib/image";
 import type { AnswerResult, AskResponse, QuestionMode } from "@/lib/types";
 
@@ -69,8 +76,21 @@ const ERROR_TEXT: Record<string, string> = {
   no_questions_found: "لم أعثر على سؤال واضح في المحتوى المرسل.",
   no_credits: "انتهى رصيد الذكاء الاصطناعي، يرجى شحن الرصيد ثم إعادة المحاولة.",
   rate_limit: "الطلبات كثيرة حاليًا، انتظر قليلًا ثم أعد المحاولة.",
+  scanned_pdf:
+    "هذا الملف ممسوح ضوئيًا (صور بلا نص). ارفع ملف PDF نصيًا أو استخدم خيار رفع الصورة.",
+  pdf_too_large: "حجم الملف كبير جدًا، الحد الأقصى 15 ميجابايت.",
+  bad_pdf: "تعذر فتح ملف PDF، تأكد من سلامة الملف.",
   failed: "تعذر تحليل السؤال، حاول مرة أخرى.",
 };
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
 
 function Home() {
   const ask = useServerFn(askQuestion);
