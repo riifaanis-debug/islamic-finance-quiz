@@ -263,6 +263,9 @@ export const askImage = createServerFn({ method: "POST" })
       return await runPipeline(texts, mode, "image", data.source);
     } catch (error) {
       console.error("askImage failed", error);
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("402")) return { ok: false, error: "no_credits" };
+      if (msg === "RATE_LIMIT") return { ok: false, error: "rate_limit" };
       return { ok: false, error: "failed" };
     }
 
