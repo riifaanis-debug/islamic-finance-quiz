@@ -283,7 +283,27 @@ function Home() {
               event.target.value = "";
             }}
           />
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => pdfRef.current?.click()}
+            disabled={loading}
+          >
+            <FileUp className="size-4" />
+            رفع ملف PDF
+          </Button>
+          <input
+            ref={pdfRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(event) => {
+              void onPdf(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
         </div>
+
 
         <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
           <label className="flex items-center gap-2">
