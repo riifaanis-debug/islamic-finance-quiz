@@ -31,7 +31,7 @@ async function logHistory(
   >["supabaseAdmin"],
   result: AnswerResult,
   elapsed: number,
-  inputType: "text" | "image",
+  inputType: "text" | "image" | "pdf",
   mode: QuestionMode,
 ) {
   try {
