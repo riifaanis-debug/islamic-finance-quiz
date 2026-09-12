@@ -67,8 +67,8 @@ async function answerOne(
   admin: Admin,
   questionText: string,
   mode: QuestionMode,
-  inputType: "text" | "image",
-  bankInput: "text" | "camera" | "image_upload",
+  inputType: "text" | "image" | "pdf",
+  bankInput: "text" | "camera" | "image_upload" | "pdf",
 ) {
   const started = Date.now();
   const parsed = buildParsed(questionText, mode);
@@ -99,13 +99,14 @@ async function answerOne(
 async function runPipeline(
   questions: string[],
   mode: QuestionMode,
-  inputType: "text" | "image" = "text",
-  bankInput: "text" | "camera" | "image_upload" = "text",
+  inputType: "text" | "image" | "pdf" = "text",
+  bankInput: "text" | "camera" | "image_upload" | "pdf" = "text",
+  limit: number = MAX_QUESTIONS,
 ): Promise<AskResponse> {
   const list = questions
     .map((q) => q.trim())
     .filter((q) => q.length >= 3)
-    .slice(0, MAX_QUESTIONS);
+    .slice(0, limit);
   if (!list.length) return { ok: false, error: "no_questions_found" };
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

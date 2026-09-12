@@ -42,7 +42,7 @@ export async function saveToBank(
   admin: SupabaseAdmin,
   result: AnswerResult,
   mode: QuestionMode,
-  inputType: "text" | "camera" | "image_upload",
+  inputType: "text" | "camera" | "image_upload" | "pdf",
   originalImagePath: string | null = null,
 ): Promise<void> {
   try {
