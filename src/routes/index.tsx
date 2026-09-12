@@ -95,6 +95,7 @@ function fileToBase64(file: File): Promise<string> {
 function Home() {
   const ask = useServerFn(askQuestion);
   const askImg = useServerFn(askImage);
+  const askDoc = useServerFn(askPdf);
 
   const [mode, setMode] = useState<QuestionMode>("multiple_choice");
   const [question, setQuestion] = useState("");
@@ -105,6 +106,7 @@ function Home() {
   const [results, setResults] = useState<AnswerResult[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const pdfRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem(MODE_STORAGE_KEY) as QuestionMode | null;
@@ -165,6 +167,20 @@ function Home() {
       submitImage(await toCompressedDataUrl(file), "image_upload");
     } catch {
       toast.error(ERROR_TEXT["unreadable_image"]!);
+    }
+  };
+
+  const onPdf = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error(ERROR_TEXT["pdf_too_large"]!);
+      return;
+    }
+    try {
+      const base64 = await fileToBase64(file);
+      void run(() => askDoc({ data: { file: base64, questionMode: mode } }));
+    } catch {
+      toast.error(ERROR_TEXT["bad_pdf"]!);
     }
   };
 
