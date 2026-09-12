@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Camera, ImageUp, Loader2, Send, ScrollText } from "lucide-react";
+import {
+  Camera,
+  FileUp,
+  ImageUp,
+  Loader2,
+  Send,
+  ScrollText,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CameraCapture } from "@/components/CameraCapture";
 import { ResultCard } from "@/components/ResultCard";
-import { askImage, askQuestion } from "@/lib/ask.functions";
+import { askImage, askPdf, askQuestion } from "@/lib/ask.functions";
 import { toCompressedDataUrl } from "@/lib/image";
 import type { AnswerResult, AskResponse, QuestionMode } from "@/lib/types";
 
@@ -69,12 +76,26 @@ const ERROR_TEXT: Record<string, string> = {
   no_questions_found: "لم أعثر على سؤال واضح في المحتوى المرسل.",
   no_credits: "انتهى رصيد الذكاء الاصطناعي، يرجى شحن الرصيد ثم إعادة المحاولة.",
   rate_limit: "الطلبات كثيرة حاليًا، انتظر قليلًا ثم أعد المحاولة.",
+  scanned_pdf:
+    "هذا الملف ممسوح ضوئيًا (صور بلا نص). ارفع ملف PDF نصيًا أو استخدم خيار رفع الصورة.",
+  pdf_too_large: "حجم الملف كبير جدًا، الحد الأقصى 15 ميجابايت.",
+  bad_pdf: "تعذر فتح ملف PDF، تأكد من سلامة الملف.",
   failed: "تعذر تحليل السؤال، حاول مرة أخرى.",
 };
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
 
 function Home() {
   const ask = useServerFn(askQuestion);
   const askImg = useServerFn(askImage);
+  const askDoc = useServerFn(askPdf);
 
   const [mode, setMode] = useState<QuestionMode>("multiple_choice");
   const [question, setQuestion] = useState("");
@@ -85,6 +106,7 @@ function Home() {
   const [results, setResults] = useState<AnswerResult[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const pdfRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem(MODE_STORAGE_KEY) as QuestionMode | null;
@@ -145,6 +167,20 @@ function Home() {
       submitImage(await toCompressedDataUrl(file), "image_upload");
     } catch {
       toast.error(ERROR_TEXT["unreadable_image"]!);
+    }
+  };
+
+  const onPdf = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error(ERROR_TEXT["pdf_too_large"]!);
+      return;
+    }
+    try {
+      const base64 = await fileToBase64(file);
+      void run(() => askDoc({ data: { file: base64, questionMode: mode } }));
+    } catch {
+      toast.error(ERROR_TEXT["bad_pdf"]!);
     }
   };
 
@@ -247,7 +283,27 @@ function Home() {
               event.target.value = "";
             }}
           />
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => pdfRef.current?.click()}
+            disabled={loading}
+          >
+            <FileUp className="size-4" />
+            رفع ملف PDF
+          </Button>
+          <input
+            ref={pdfRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(event) => {
+              void onPdf(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
         </div>
+
 
         <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
           <label className="flex items-center gap-2">
