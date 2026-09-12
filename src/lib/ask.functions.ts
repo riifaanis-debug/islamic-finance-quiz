@@ -61,6 +61,7 @@ type Admin = Awaited<
 >["supabaseAdmin"];
 
 const MAX_QUESTIONS = 10;
+const MAX_QUESTIONS_PDF = 50;
 
 async function answerOne(
   admin: Admin,

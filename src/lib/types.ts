@@ -49,7 +49,10 @@ export type AskResponse =
         | "missing_options"
         | "no_questions_found"
         | "no_credits"
-        | "rate_limit";
+        | "rate_limit"
+        | "scanned_pdf"
+        | "pdf_too_large"
+        | "bad_pdf";
     };
 
 export const BAG_TITLES = [
