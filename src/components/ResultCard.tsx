@@ -38,6 +38,8 @@ export function ResultCard({
   const positive = isTrueFalse ? result.is_true_false !== false : true;
   const detailsVisible = examMode ? sourceOpen : showExplanation;
   const isFallback = result.answer_status === "fallback";
+  const hasConflict = result.resolution_status === "conflict";
+  const isInsufficient = result.resolution_status === "insufficient";
   const lowConfidence = isFallback && result.confidence_label === "low";
   const originText =
     result.answer_origin === "web"
@@ -49,7 +51,11 @@ export function ResultCard({
       <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
         {(!examMode || isFallback) && (
           <span className="text-xs font-medium tracking-wide text-muted-foreground">
-            {isFallback ? "الإجابة الأرجح" : "الإجابة الصحيحة"}
+            {hasConflict || isInsufficient
+              ? "إجابة غير محسومة"
+              : isFallback
+                ? "الإجابة الأرجح"
+                : "الإجابة الصحيحة"}
           </span>
         )}
         {result.answer_letter && !isTrueFalse && (
@@ -81,6 +87,8 @@ export function ResultCard({
             <span>
               {lowConfidence
                 ? "الثقة في هذه الإجابة منخفضة، ولم يتم العثور على تأكيد لها داخل الحقائب التدريبية."
+                : hasConflict
+                  ? "ظهرت أدلة متعارضة أو لم تتفق مرحلتا التحليل على جواب واحد. هذه إجابة مرجحة وليست مؤكدة من الحقائب."
                 : `لم أجد إجابة مؤكدة لهذا السؤال داخل الحقائب التدريبية، وتم اختيار هذه الإجابة باعتبارها الأرجح اعتمادًا على ${originText}.`}
             </span>
           </p>
@@ -138,9 +146,9 @@ export function ResultCard({
               </span>
             </div>
           )}
-          {result.source_excerpt && (
+          {result.evidence_quote && (
             <blockquote className="rounded-xl border bg-background/70 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-              «{result.source_excerpt}…»
+              «{result.evidence_quote}»
             </blockquote>
           )}
         </div>

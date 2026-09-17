@@ -191,7 +191,7 @@ export async function saveToBank(
         patch["answer_origin"] = result.answer_origin;
         patch["external_sources"] = result.external_sources;
       }
-      if (decision) {
+      if (decision && row["verification_status"] !== "verified") {
         patch["decision_key"] = decision.key;
         patch["knowledge_version"] = decision.knowledgeVersion;
         patch["pipeline_version"] = PIPELINE_VERSION;
