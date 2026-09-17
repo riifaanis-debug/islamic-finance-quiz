@@ -364,18 +364,8 @@ ${context}`;
     verifiedEvidence !== null;
   const conflict = verification.verdict === "conflict" || !sameDecision || !uniquelySupported;
 
-  const modelConfidence = Math.max(0, Math.min(1, Number(out.confidence ?? 0)));
-  // Blend model certainty with retrieval strength + evidence agreement.
+  // Confidence follows verified evidence, never the model's self-assessment.
   const retrievalStrength = Math.min(1, (chunks[0]?.score ?? 0) / 0.04);
-  const agreement = chunks.filter((c) => c.bag_id === evidence.bag_id).length /
-    chunks.length;
-  const confidence = Math.max(
-    0,
-    Math.min(
-      1,
-      modelConfidence * 0.65 + retrievalStrength * 0.2 + agreement * 0.15,
-    ),
-  );
   const verificationConfidence = Math.max(
     0,
     Math.min(1, Number(verification.confidence ?? 0)),
