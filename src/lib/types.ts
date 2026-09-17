@@ -45,11 +45,19 @@ export type AnswerResult = {
   evidence_chunk_id: string | null;
   evidence_quote: string | null;
   verification_reason: string | null;
+  /** Original number of the question inside the uploaded file, when known. */
+  question_number?: number | null;
 };
 
 
 export type AskResponse =
-  | { ok: true; results: AnswerResult[] }
+  | {
+      ok: true;
+      results: AnswerResult[];
+      /** How many questions were extracted vs. detected in the file. */
+      extracted?: number;
+      expected?: number;
+    }
   | {
       ok: false;
       error:
