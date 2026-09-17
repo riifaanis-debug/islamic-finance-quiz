@@ -128,6 +128,12 @@ function Home() {
       const response = await fn();
       if (response.ok) {
         setResults(response.results);
+        const expected = response.expected ?? response.results.length;
+        if (expected > 1) {
+          toast.success(
+            `تم استخراج ${response.results.length} من ${expected} سؤالًا`,
+          );
+        }
       } else {
         toast.error(ERROR_TEXT[response.error] ?? ERROR_TEXT["failed"]!);
       }
@@ -350,8 +356,18 @@ function Home() {
               {results.map((item, index) => (
                 <div key={`${index}-${item.question}`}>
                   {results.length > 1 && (
-                    <p className="mb-2 text-sm font-medium text-muted-foreground">
-                      السؤال {index + 1} من {results.length} — {item.question}
+                    <p className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <span className="rounded-full border px-2 py-0.5 text-xs">
+                        {item.question_type === "true_false"
+                          ? "صح وخطأ"
+                          : item.question_type === "multiple_choice"
+                            ? "اختيارات"
+                            : "موضوعي"}
+                      </span>
+                      <span>
+                        السؤال {item.question_number ?? index + 1} من{" "}
+                        {results.length} — {item.question}
+                      </span>
                     </p>
                   )}
                   <ResultCard
