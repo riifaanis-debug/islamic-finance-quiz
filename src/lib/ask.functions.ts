@@ -128,16 +128,24 @@ async function answerOne(
   return canonical;
 }
 
+type PipelineItem = {
+  text: string;
+  mode: QuestionMode;
+  number?: number | null;
+};
+
+const ANSWER_CONCURRENCY = 4;
+
 async function runPipeline(
-  questions: string[],
-  mode: QuestionMode,
+  questions: PipelineItem[],
   inputType: "text" | "image" | "pdf" = "text",
   bankInput: "text" | "camera" | "image_upload" | "pdf" = "text",
   limit: number = MAX_QUESTIONS,
+  expected?: number,
 ): Promise<AskResponse> {
   const list = questions
-    .map((q) => q.trim())
-    .filter((q) => q.length >= 3)
+    .map((q) => ({ ...q, text: q.text.trim() }))
+    .filter((q) => q.text.length >= 3)
     .slice(0, limit);
   if (!list.length) return { ok: false, error: "no_questions_found" };
 
@@ -150,12 +158,18 @@ async function runPipeline(
   if (!count) return { ok: false, error: "no_knowledge" };
 
   const results: AnswerResult[] = [];
-  // Concurrency 2 keeps us clear of gateway rate limits.
-  for (let i = 0; i < list.length; i += 2) {
+  for (let i = 0; i < list.length; i += ANSWER_CONCURRENCY) {
     const batch = await Promise.all(
-      list.slice(i, i + 2).map(async (q) => {
+      list.slice(i, i + ANSWER_CONCURRENCY).map(async (item) => {
         try {
-          return await answerOne(supabaseAdmin, q, mode, inputType, bankInput);
+          const answer = await answerOne(
+            supabaseAdmin,
+            item.text,
+            item.mode,
+            inputType,
+            bankInput,
+          );
+          return { ...answer, question_number: item.number ?? null };
         } catch (error) {
           console.error("question failed", error);
           return null;
@@ -166,7 +180,12 @@ async function runPipeline(
   }
 
   if (!results.length) return { ok: false, error: "failed" };
-  return { ok: true, results };
+  return {
+    ok: true,
+    results,
+    extracted: results.length,
+    expected: expected ?? list.length,
+  };
 }
 
 /** Split pasted text into separate questions when it is numbered. */
