@@ -368,7 +368,13 @@ async function extractPdfText(bytes: Uint8Array): Promise<string> {
     .join("\n\n");
 }
 
-const QUESTION_MARK_RE = /(^|\n)\s*(?:س|السؤال)\s*[-–—ـ]?\s*([0-9\u0660-\u0669]{1,3})\s*[-–—.:)]?\s/g;
+const QUESTION_MARK_RE =
+  /(^|\n)\s*(?:س|السؤال)\s*[-–—ـ]?\s*([0-9\u0660-\u0669]{1,3})\s*[-–—.:)]?\s*/g;
+
+/** PDFs carry bidi control marks that break number detection. */
+function stripBidi(text: string) {
+  return text.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "");
+}
 
 function toLatinDigits(value: string) {
   return value.replace(/[\u0660-\u0669]/g, (d) =>
@@ -380,6 +386,7 @@ function toLatinDigits(value: string) {
 export function splitExamBlocks(
   text: string,
 ): { number: number | null; text: string }[] {
+  text = stripBidi(text);
   const marks: { index: number; number: number }[] = [];
   QUESTION_MARK_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
