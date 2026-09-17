@@ -171,7 +171,7 @@ export async function retrieveChunks(
   }
 
   return [...fused.values()]
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
     .slice(0, keepTop);
 }
 
@@ -216,6 +216,10 @@ export async function answerFromChunks(
     answer_origin: "training_bags",
     warning: null,
     external_sources: null,
+    resolution_status: "insufficient",
+    evidence_chunk_id: null,
+    evidence_quote: null,
+    verification_reason: null,
   };
 
 
@@ -257,45 +261,143 @@ export async function answerFromChunks(
 
   const out = await chatJson<Partial<AnswerResult>>(messages);
 
-  // Source metadata never comes from the model: resolve it from the cited chunk.
+  // A missing or invalid citation is a failed verification, never chunk zero.
   const rawIndex = Number((out as { evidence_index?: unknown }).evidence_index);
   const evidence =
     Number.isFinite(rawIndex) && chunks[rawIndex - 1]
       ? chunks[rawIndex - 1]!
-      : chunks[0]!;
-  const sourceBag = evidence.bag_title;
-  const sourcePage = evidence.page_number;
-  const sourceExcerpt = evidence.content.slice(0, 320).trim();
+      : null;
 
-  const modelConfidence = Math.max(0, Math.min(1, Number(out.confidence ?? 0)));
-  // Blend model certainty with retrieval strength + evidence agreement.
-  const retrievalStrength = Math.min(1, (chunks[0]?.score ?? 0) / 0.04);
-  const agreement = chunks.filter((c) => c.bag_id === evidence.bag_id).length /
-    chunks.length;
-  const confidence = Math.max(
-    0,
-    Math.min(
-      1,
-      modelConfidence * 0.65 + retrievalStrength * 0.2 + agreement * 0.15,
-    ),
+  const candidateLetter =
+    parsed.question_type === "multiple_choice" &&
+    typeof out.answer_letter === "string" &&
+    parsed.options[out.answer_letter]
+      ? out.answer_letter
+      : null;
+  const candidateText =
+    candidateLetter !== null
+      ? parsed.options[candidateLetter] ?? ""
+      : String(out.answer_text ?? "").trim();
+  const candidateValid =
+    parsed.question_type === "multiple_choice"
+      ? candidateLetter !== null
+      : parsed.question_type === "true_false"
+        ? typeof out.is_true_false === "boolean"
+        : candidateText.length > 0;
+
+  type VerificationOut = {
+    verdict?: "supported" | "conflict" | "insufficient";
+    answer_letter?: string | null;
+    is_true_false?: boolean | null;
+    evidence_index?: number;
+    evidence_quote?: string;
+    reason?: string;
+    confidence?: number;
+    option_checks?: Array<{
+      label: string;
+      verdict: "supported" | "contradicted" | "insufficient";
+    }>;
+  };
+
+  let verification: VerificationOut = {
+    verdict: "insufficient",
+    reason: "لم يحدد المجيب مقطعًا صالحًا يثبت الإجابة.",
+  };
+  if (Boolean(out.found) && candidateValid && evidence) {
+    const verificationPrompt = `أنت مدقق مستقل لإجابة اختبار. افحص كل بديل مقابل المقاطع فقط، ولا تعتمد على معرفة عامة.
+أعد JSON فقط:
+{"verdict":"supported|conflict|insufficient","answer_letter":"أ|ب|ج|د|هـ|null","is_true_false":true|false|null,"evidence_index":1,"evidence_quote":"اقتباس حرفي من المقطع","reason":"سبب مختصر","confidence":0.0,"option_checks":[{"label":"أ","verdict":"supported|contradicted|insufficient"}]}
+القواعد:
+- supported فقط إذا كان جواب واحد بعينه مثبتًا بوضوح، مع اقتباس حرفي موجود في المقطع المحدد.
+- conflict إذا دعمت المقاطع جوابًا مختلفًا عن المرشح، أو دعمت أكثر من جواب.
+- insufficient إذا لم يوجد نص كافٍ للحسم.
+- افحص جميع الخيارات في option_checks عند الاختيار من متعدد.
+
+الجواب المرشح: ${candidateLetter ?? candidateText}
+السؤال: ${parsed.question}
+${optionsText ? `الخيارات:\n${optionsText}\n` : ""}
+المقاطع:
+${context}`;
+    verification = await chatJson<VerificationOut>([
+      { role: "system", content: "تحقق من الدليل فقط، وأعد JSON مطابقًا للبنية المطلوبة." },
+      { role: "user", content: verificationPrompt },
+    ]);
+  }
+
+  const verifiedIndex = Number(verification.evidence_index);
+  const verifiedEvidence =
+    Number.isInteger(verifiedIndex) && verifiedIndex > 0
+      ? chunks[verifiedIndex - 1] ?? null
+      : null;
+  const quote = String(verification.evidence_quote ?? "").trim();
+  const normalizeEvidence = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[أإآٱ]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ة/g, "ه")
+      .replace(/[\u064B-\u0652\u0640]/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const normalizedQuote = normalizeEvidence(quote);
+  const quoteIsLiteral = Boolean(
+    verifiedEvidence &&
+      normalizedQuote.length >= 8 &&
+      normalizeEvidence(verifiedEvidence.content).includes(normalizedQuote),
   );
-  const found = Boolean(out.found) && confidence >= 0.45 && !!out.answer_text;
+  const sameDecision =
+    parsed.question_type === "multiple_choice"
+      ? verification.answer_letter === candidateLetter
+      : parsed.question_type === "true_false"
+        ? verification.is_true_false === out.is_true_false
+        : true;
+  const uniquelySupported =
+    parsed.question_type !== "multiple_choice" ||
+    (verification.option_checks ?? []).filter((item) => item.verdict === "supported")
+      .length === 1;
+  const supported =
+    verification.verdict === "supported" &&
+    sameDecision &&
+    uniquelySupported &&
+    quoteIsLiteral &&
+    verifiedEvidence !== null;
+  const conflict = verification.verdict === "conflict" || !sameDecision || !uniquelySupported;
+
+  // Confidence follows verified evidence, never the model's self-assessment.
+  const retrievalStrength = Math.min(1, (chunks[0]?.score ?? 0) / 0.04);
+  const verificationConfidence = Math.max(
+    0,
+    Math.min(1, Number(verification.confidence ?? 0)),
+  );
+  const confidence = supported
+    ? Math.max(
+        0,
+        Math.min(1, retrievalStrength * 0.35 + verificationConfidence * 0.65),
+      )
+    : Math.min(0.49, verificationConfidence * 0.4);
+  const found = supported;
 
   return {
     ...base,
     question_type: parsed.question_type,
-    answer_letter: out.answer_letter ?? null,
-    answer_text: out.answer_text ?? "",
+    answer_letter: candidateLetter,
+    answer_text: candidateText,
     is_true_false:
       typeof out.is_true_false === "boolean" ? out.is_true_false : null,
     explanation: out.explanation ?? null,
-    source_bag: found ? sourceBag : null,
-    source_bag_id: found ? evidence.bag_id : null,
-    source_page: found ? sourcePage : null,
-    source_excerpt: found ? sourceExcerpt : null,
+    source_bag: found ? verifiedEvidence?.bag_title ?? null : null,
+    source_bag_id: found ? verifiedEvidence?.bag_id ?? null : null,
+    source_page: found ? verifiedEvidence?.page_number ?? null : null,
+    source_excerpt: found ? verifiedEvidence?.content.slice(0, 320).trim() ?? null : null,
     confidence,
     confidence_label:
       confidence >= 0.75 ? "high" : confidence >= 0.5 ? "medium" : "low",
     found,
+    resolution_status: found ? "supported" : conflict ? "conflict" : "insufficient",
+    evidence_chunk_id: found ? verifiedEvidence?.id ?? null : null,
+    evidence_quote: found ? quote : null,
+    verification_reason:
+      verification.reason ?? (found ? "ثبتت الإجابة من المقطع المحدد." : "الدليل غير كافٍ."),
   };
 }

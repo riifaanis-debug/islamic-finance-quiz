@@ -15,6 +15,12 @@ export type ExternalSource = {
 };
 
 export type AnswerOrigin = "training_bags" | "model_knowledge" | "web";
+export type ResolutionStatus =
+  | "supported"
+  | "conflict"
+  | "insufficient"
+  | "fallback"
+  | "human_verified";
 
 export type AnswerResult = {
   question: string;
@@ -35,6 +41,10 @@ export type AnswerResult = {
   answer_origin: AnswerOrigin;
   warning: string | null;
   external_sources: ExternalSource[] | null;
+  resolution_status: ResolutionStatus;
+  evidence_chunk_id: string | null;
+  evidence_quote: string | null;
+  verification_reason: string | null;
 };
 
 

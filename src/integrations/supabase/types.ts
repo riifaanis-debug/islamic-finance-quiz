@@ -133,23 +133,33 @@ export type Database = {
           correct_answer_label: string | null
           correct_answer_text: string
           created_at: string
+          decision_key: string | null
+          evidence_chunk_id: string | null
+          evidence_quote: string | null
           explanation: string | null
           external_sources: Json | null
           first_seen_at: string
           id: string
           input_type: string
+          is_true_false: boolean | null
+          knowledge_version: string | null
           last_seen_at: string
           normalized_text: string
           options: Json | null
           original_image_path: string | null
+          pipeline_version: string
           question_mode: string
           question_text: string
+          resolution_status: string
+          retrieved_chunk_ids: Json
           source_bag_id: string | null
           source_bag_name: string | null
+          source_excerpt: string | null
           source_page: number | null
           source_pages: Json | null
           times_asked: number
           updated_at: string
+          verification_details: Json
           verification_status: string
         }
         Insert: {
@@ -158,23 +168,33 @@ export type Database = {
           correct_answer_label?: string | null
           correct_answer_text?: string
           created_at?: string
+          decision_key?: string | null
+          evidence_chunk_id?: string | null
+          evidence_quote?: string | null
           explanation?: string | null
           external_sources?: Json | null
           first_seen_at?: string
           id?: string
           input_type?: string
+          is_true_false?: boolean | null
+          knowledge_version?: string | null
           last_seen_at?: string
           normalized_text: string
           options?: Json | null
           original_image_path?: string | null
+          pipeline_version?: string
           question_mode: string
           question_text: string
+          resolution_status?: string
+          retrieved_chunk_ids?: Json
           source_bag_id?: string | null
           source_bag_name?: string | null
+          source_excerpt?: string | null
           source_page?: number | null
           source_pages?: Json | null
           times_asked?: number
           updated_at?: string
+          verification_details?: Json
           verification_status?: string
         }
         Update: {
@@ -183,26 +203,43 @@ export type Database = {
           correct_answer_label?: string | null
           correct_answer_text?: string
           created_at?: string
+          decision_key?: string | null
+          evidence_chunk_id?: string | null
+          evidence_quote?: string | null
           explanation?: string | null
           external_sources?: Json | null
           first_seen_at?: string
           id?: string
           input_type?: string
+          is_true_false?: boolean | null
+          knowledge_version?: string | null
           last_seen_at?: string
           normalized_text?: string
           options?: Json | null
           original_image_path?: string | null
+          pipeline_version?: string
           question_mode?: string
           question_text?: string
+          resolution_status?: string
+          retrieved_chunk_ids?: Json
           source_bag_id?: string | null
           source_bag_name?: string | null
+          source_excerpt?: string | null
           source_page?: number | null
           source_pages?: Json | null
           times_asked?: number
           updated_at?: string
+          verification_details?: Json
           verification_status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "question_bank_evidence_chunk_id_fkey"
+            columns: ["evidence_chunk_id"]
+            isOneToOne: false
+            referencedRelation: "document_chunks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_bank_source_bag_id_fkey"
             columns: ["source_bag_id"]
@@ -219,7 +256,9 @@ export type Database = {
           answer_text: string | null
           confidence: number | null
           created_at: string
+          decision_key: string | null
           detected_options: Json | null
+          evidence_chunk_id: string | null
           id: string
           image_url: string | null
           input_type: string | null
@@ -227,6 +266,7 @@ export type Database = {
           question_mode: string | null
           question_text: string | null
           question_type: string | null
+          resolution_status: string | null
           selected_answer: string | null
           source_file: string | null
           source_page: number | null
@@ -237,7 +277,9 @@ export type Database = {
           answer_text?: string | null
           confidence?: number | null
           created_at?: string
+          decision_key?: string | null
           detected_options?: Json | null
+          evidence_chunk_id?: string | null
           id?: string
           image_url?: string | null
           input_type?: string | null
@@ -245,6 +287,7 @@ export type Database = {
           question_mode?: string | null
           question_text?: string | null
           question_type?: string | null
+          resolution_status?: string | null
           selected_answer?: string | null
           source_file?: string | null
           source_page?: number | null
@@ -255,7 +298,9 @@ export type Database = {
           answer_text?: string | null
           confidence?: number | null
           created_at?: string
+          decision_key?: string | null
           detected_options?: Json | null
+          evidence_chunk_id?: string | null
           id?: string
           image_url?: string | null
           input_type?: string | null
@@ -263,11 +308,20 @@ export type Database = {
           question_mode?: string | null
           question_text?: string | null
           question_type?: string | null
+          resolution_status?: string | null
           selected_answer?: string | null
           source_file?: string | null
           source_page?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "question_history_evidence_chunk_id_fkey"
+            columns: ["evidence_chunk_id"]
+            isOneToOne: false
+            referencedRelation: "document_chunks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       training_bags: {
         Row: {

@@ -33,6 +33,7 @@ async function logHistory(
   elapsed: number,
   inputType: "text" | "image" | "pdf",
   mode: QuestionMode,
+  decisionKey: string,
 ) {
   try {
     await admin.from("question_history").insert({
@@ -48,6 +49,9 @@ async function logHistory(
       processing_time: elapsed,
       answer_status: result.answer_status === "fallback" ? "fallback" : "answered",
       answer_origin: result.answer_origin,
+      decision_key: decisionKey,
+      resolution_status: result.resolution_status,
+      evidence_chunk_id: result.evidence_chunk_id,
       input_type: inputType,
     });
 
@@ -72,6 +76,20 @@ async function answerOne(
 ) {
   const started = Date.now();
   const parsed = buildParsed(questionText, mode);
+  const { createDecisionKey, findSavedDecision, getKnowledgeVersion, saveToBank } =
+    await import("./bank.server");
+  const decisionKey = await createDecisionKey(parsed.question, mode, parsed.options);
+  const knowledgeVersion = await getKnowledgeVersion(admin);
+  const saved = await findSavedDecision(admin, decisionKey, knowledgeVersion);
+  if (saved) {
+    await saveToBank(admin, saved, mode, bankInput, null, {
+      key: decisionKey,
+      knowledgeVersion,
+      retrievedChunkIds: [],
+    });
+    await logHistory(admin, saved, Date.now() - started, inputType, mode, decisionKey);
+    return saved;
+  }
   const searchText = [
     parsed.question,
     ...Object.values(parsed.options),
@@ -90,10 +108,24 @@ async function answerOne(
     }
   }
 
-  await logHistory(admin, result, Date.now() - started, inputType, mode);
-  const { saveToBank } = await import("./bank.server");
-  await saveToBank(admin, result, mode, bankInput);
-  return result;
+  await saveToBank(admin, result, mode, bankInput, null, {
+    key: decisionKey,
+    knowledgeVersion,
+    retrievedChunkIds: chunks.map((chunk) => chunk.id),
+  });
+  // If two identical requests arrived together, the unique decision row picks
+  // one canonical result and every caller returns that exact same decision.
+  const canonical =
+    (await findSavedDecision(admin, decisionKey, knowledgeVersion)) ?? result;
+  await logHistory(
+    admin,
+    canonical,
+    Date.now() - started,
+    inputType,
+    mode,
+    decisionKey,
+  );
+  return canonical;
 }
 
 async function runPipeline(

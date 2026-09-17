@@ -185,5 +185,11 @@ export async function fallbackAnswer(
     answer_origin: origin,
     warning: "لم يتم تأكيد هذه الإجابة من الحقائب التدريبية.",
     external_sources: external,
+    resolution_status:
+      base.resolution_status === "conflict" ? "conflict" : "fallback",
+    evidence_chunk_id: null,
+    evidence_quote: null,
+    verification_reason:
+      base.verification_reason ?? "لم يتوفر دليل كافٍ لحسم الإجابة من الحقائب.",
   };
 }
