@@ -450,37 +450,69 @@ export const askPdf = createServerFn({ method: "POST" })
         return { ok: false, error: "scanned_pdf" };
       }
 
-      const mode = data.questionMode;
-      const messages: ChatMessage[] = [
-        {
-          role: "system",
-          content: `${PDF_BASE}\n${VISION_MODE[mode]}\n${PDF_FORMAT}`,
-        },
-        {
-          role: "user",
-          content: `النص المستخرج من الملف:\n"""\n${text}\n"""`,
-        },
-      ];
-      const parsedOut = await chatJson<VisionOut>(messages);
-      const items = (Array.isArray(parsedOut.questions) ? parsedOut.questions : [])
-        .filter((q) => typeof q?.question === "string" && q.question.trim().length >= 3)
-        .slice(0, MAX_QUESTIONS_PDF);
-
-      const texts: string[] = [];
-      for (const item of items) {
-        const options = Object.entries(item.options ?? {}).filter(
-          ([, v]) => typeof v === "string" && v.trim().length > 0,
-        );
-        texts.push(
-          mode === "multiple_choice" && options.length >= 2
-            ? `${item.question}\n${options.map(([k, v]) => `${k}) ${v}`).join("\n")}`
-            : item.question,
-        );
+      const fallbackMode = data.questionMode;
+      const blocks = splitExamBlocks(text);
+      const chunks: { number: number | null; text: string }[][] = [];
+      if (blocks.length) {
+        for (let i = 0; i < blocks.length; i += EXTRACT_BATCH) {
+          chunks.push(blocks.slice(i, i + EXTRACT_BATCH));
+        }
+      } else {
+        chunks.push([{ number: null, text }]);
       }
 
-      if (!texts.length) return { ok: false, error: "no_questions_found" };
+      const extracted: PdfQuestion[] = [];
+      // Small parallel batches: no lost questions, no merged pairs.
+      for (let i = 0; i < chunks.length; i += 3) {
+        const done = await Promise.all(
+          chunks.slice(i, i + 3).map(async (group) => {
+            try {
+              return await extractBatch(group);
+            } catch (error) {
+              console.error("pdf extract batch failed", error);
+              return [];
+            }
+          }),
+        );
+        for (const list of done) extracted.push(...list);
+      }
 
-      return await runPipeline(texts, mode, "pdf", "pdf", MAX_QUESTIONS_PDF);
+      const seen = new Set<string>();
+      const items: PipelineItem[] = [];
+      for (const item of extracted) {
+        const question =
+          typeof item?.question === "string" ? item.question.trim() : "";
+        if (question.length < 3) continue;
+        const key = question.replace(/\s+/g, " ").toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const { mode, options } = detectMode(item);
+        const effectiveMode =
+          item.question_type || options.length ? mode : fallbackMode;
+        const body = options.length
+          ? `${question}\n${options.map(([k, v]) => `${k}) ${v}`).join("\n")}`
+          : question;
+        const num = Number(toLatinDigits(String(item.number ?? "")));
+        items.push({
+          text: body,
+          mode: effectiveMode,
+          number: Number.isFinite(num) && num > 0 ? num : null,
+        });
+      }
+
+      items.sort((a, b) => (a.number ?? 1e6) - (b.number ?? 1e6));
+      const trimmed = items.slice(0, MAX_QUESTIONS_PDF);
+      if (!trimmed.length) return { ok: false, error: "no_questions_found" };
+
+      const expected = blocks.length || trimmed.length;
+      return await runPipeline(
+        trimmed,
+        "pdf",
+        "pdf",
+        MAX_QUESTIONS_PDF,
+        expected,
+      );
     } catch (error) {
       console.error("askPdf failed", error);
       const msg = error instanceof Error ? error.message : "";
