@@ -84,7 +84,7 @@ export function ExamSession({
       )}
 
       {results.map((result, index) => {
-        const options =
+        const options: [string, string][] =
           result.question_type === "true_false" &&
           Object.keys(result.options ?? {}).length === 0
             ? [
