@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -105,6 +106,7 @@ function Home() {
   const [phase, setPhase] = useState(0);
   const [results, setResults] = useState<AnswerResult[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [pastedPreview, setPastedPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const pdfRef = useRef<HTMLInputElement | null>(null);
 
@@ -143,6 +145,7 @@ function Home() {
       clearTimeout(timer1);
       clearTimeout(timer2);
       setLoading(false);
+      setPastedPreview(null);
     }
   };
 
@@ -167,13 +170,37 @@ function Home() {
     );
   };
 
-  const onFile = async (file: File | undefined) => {
+  const onFile = async (file: File | undefined, showPreview = false) => {
     if (!file) return;
     try {
-      submitImage(await toCompressedDataUrl(file), "image_upload");
+      const dataUrl = await toCompressedDataUrl(file);
+      if (showPreview) setPastedPreview(dataUrl);
+      submitImage(dataUrl, "image_upload");
     } catch {
+      setPastedPreview(null);
       toast.error(ERROR_TEXT["unreadable_image"]!);
     }
+  };
+
+  const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const images = Array.from(event.clipboardData.items).filter(
+      (item) => item.kind === "file" && item.type.startsWith("image/"),
+    );
+    if (images.length === 0) return;
+    event.preventDefault();
+    if (loading) {
+      toast.error("انتظر انتهاء التحليل الحالي.");
+      return;
+    }
+    if (images.length > 1) {
+      toast.info("تم لصق أكثر من صورة، ستُعالَج الصورة الأولى فقط.");
+    }
+    const file = images[0]!.getAsFile();
+    if (!file) {
+      toast.error("تعذر قراءة الصورة الملصوقة.");
+      return;
+    }
+    void onFile(file, true);
   };
 
   const onPdf = async (file: File | undefined) => {
@@ -239,13 +266,37 @@ function Home() {
           </div>
         </div>
 
+        {pastedPreview && (
+          <div className="mb-3 flex items-center gap-3 rounded-xl border p-2">
+            <img
+              src={pastedPreview}
+              alt="معاينة الصورة الملصوقة"
+              className="h-16 w-24 rounded-lg object-cover"
+            />
+            <span className="flex-1 text-sm text-muted-foreground">
+              صورة ملصوقة
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPastedPreview(null)}
+            >
+              إزالة
+            </Button>
+          </div>
+        )}
+
         <Textarea
           dir="rtl"
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
+          onPaste={onPaste}
           placeholder={PLACEHOLDER[mode]}
           className="min-h-40 resize-none border-0 bg-transparent px-1 text-base leading-8 shadow-none focus-visible:ring-0 sm:text-lg"
         />
+        <p className="px-1 text-xs text-muted-foreground">
+          يمكنك لصق لقطة الشاشة مباشرة هنا
+        </p>
 
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
           <Button
