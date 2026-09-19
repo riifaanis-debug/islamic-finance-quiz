@@ -84,7 +84,14 @@ export function ExamSession({
       )}
 
       {results.map((result, index) => {
-        const options = Object.entries(result.options ?? {});
+        const options =
+          result.question_type === "true_false" &&
+          Object.keys(result.options ?? {}).length === 0
+            ? [
+                ["صح", "صح"],
+                ["خطأ", "خطأ"],
+              ]
+            : Object.entries(result.options ?? {});
         return (
           <article key={`${index}-${result.question}`} className="space-y-3">
             <ResultCard
@@ -100,7 +107,11 @@ export function ExamSession({
               {options.length > 0 && (
                 <div className="mt-4 grid gap-2">
                   {options.map(([key, value]) => {
-                    const correct = isCorrectOption(key, result.answer_letter);
+                    const correct =
+                      result.question_type === "true_false"
+                        ? (key === "صح" && result.is_true_false === true) ||
+                          (key === "خطأ" && result.is_true_false === false)
+                        : isCorrectOption(key, result.answer_letter);
                     return (
                       <div
                         key={key}
