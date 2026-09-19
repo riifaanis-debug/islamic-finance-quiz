@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Camera,
+  ClipboardCheck,
   FileUp,
   ImageUp,
   Loader2,
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CameraCapture } from "@/components/CameraCapture";
+import { ExamSession } from "@/components/ExamSession";
 import { ResultCard } from "@/components/ResultCard";
 import { askImage, askPdf, askQuestion } from "@/lib/ask.functions";
 import { toCompressedDataUrl } from "@/lib/image";
@@ -102,6 +104,9 @@ function Home() {
   const [question, setQuestion] = useState("");
   const [examMode, setExamMode] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [testSessionActive, setTestSessionActive] = useState(false);
+  const [testSessionFinished, setTestSessionFinished] = useState(false);
+  const [testSessionResults, setTestSessionResults] = useState<AnswerResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState(0);
   const [results, setResults] = useState<AnswerResult[]>([]);
@@ -130,6 +135,9 @@ function Home() {
       const response = await fn();
       if (response.ok) {
         setResults(response.results);
+        if (testSessionActive) {
+          setTestSessionResults((current) => [...current, ...response.results]);
+        }
         const expected = response.expected ?? response.results.length;
         if (expected > 1) {
           toast.success(
@@ -147,6 +155,18 @@ function Home() {
       setLoading(false);
       setPastedPreview(null);
     }
+  };
+
+  const startTestSession = () => {
+    setTestSessionResults([]);
+    setResults([]);
+    setTestSessionFinished(false);
+    setTestSessionActive(true);
+  };
+
+  const finishTestSession = () => {
+    setTestSessionActive(false);
+    setTestSessionFinished(true);
   };
 
 
@@ -377,6 +397,29 @@ function Home() {
               إظهار التفسير والمصدر
             </span>
           </label>
+          {testSessionActive ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={finishTestSession}
+              disabled={loading}
+            >
+              <ClipboardCheck className="size-4" />
+              إنهاء وضع الاختبار
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={startTestSession}
+              disabled={loading}
+            >
+              <ClipboardCheck className="size-4" />
+              تفعيل وضع الاختبار
+            </Button>
+          )}
         </div>
       </section>
 
@@ -388,7 +431,27 @@ function Home() {
           </div>
         )}
 
-        {!loading && results.length > 0 && (
+        {!loading && (testSessionActive || testSessionFinished) && testSessionResults.length > 0 && (
+          <>
+            <ExamSession
+              results={testSessionResults}
+              finished={testSessionFinished}
+              examMode={examMode}
+              showExplanation={showExplanation}
+              onNewSession={startTestSession}
+            />
+            {testSessionActive && (
+              <div className="mt-4 flex justify-center">
+                <Button variant="secondary" onClick={() => setCameraOpen(true)}>
+                  <Camera className="size-4" />
+                  تصوير السؤال التالي
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {!loading && !testSessionActive && !testSessionFinished && results.length > 0 && (
           <>
             {results.length > 1 && (
               <div className="surface-panel mb-4 flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
@@ -438,7 +501,7 @@ function Home() {
           </>
         )}
 
-        {!loading && results.length === 0 && (
+        {!loading && results.length === 0 && testSessionResults.length === 0 && (
 
           <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
             {[
