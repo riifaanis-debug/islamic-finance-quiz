@@ -171,6 +171,10 @@ function Home() {
 
 
   const submitText = () => {
+    if (testSessionFinished) {
+      toast.info("ابدأ اختبارًا جديدًا أولًا.");
+      return;
+    }
     if (question.trim().length < 3) {
       toast.error("اكتب السؤال أولًا.");
       return;
@@ -184,6 +188,10 @@ function Home() {
     dataUrl: string,
     source: "camera" | "image_upload" = "camera",
   ) => {
+    if (testSessionFinished) {
+      toast.info("ابدأ اختبارًا جديدًا أولًا.");
+      return;
+    }
     setCameraOpen(false);
     void run(() =>
       askImg({ data: { image: dataUrl, questionMode: mode, source } }),
@@ -208,7 +216,11 @@ function Home() {
     );
     if (images.length === 0) return;
     event.preventDefault();
-    if (loading) {
+    if (loading || testSessionFinished) {
+      if (testSessionFinished) {
+        toast.info("ابدأ اختبارًا جديدًا أولًا.");
+        return;
+      }
       toast.error("انتظر انتهاء التحليل الحالي.");
       return;
     }
@@ -311,6 +323,7 @@ function Home() {
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           onPaste={onPaste}
+          disabled={testSessionFinished}
           placeholder={PLACEHOLDER[mode]}
           className="min-h-40 resize-none border-0 bg-transparent px-1 text-base leading-8 shadow-none focus-visible:ring-0 sm:text-lg"
         />
@@ -323,7 +336,7 @@ function Home() {
             size="lg"
             className="min-w-32 flex-1 sm:flex-none"
             onClick={submitText}
-            disabled={loading}
+            disabled={loading || testSessionFinished}
           >
             {loading ? (
               <Loader2 className="size-4 animate-spin" />
@@ -336,7 +349,7 @@ function Home() {
             variant="secondary"
             size="lg"
             onClick={() => setCameraOpen(true)}
-            disabled={loading}
+            disabled={loading || testSessionFinished}
           >
             <Camera className="size-4" />
             تصوير السؤال
@@ -345,7 +358,7 @@ function Home() {
             variant="outline"
             size="lg"
             onClick={() => fileRef.current?.click()}
-            disabled={loading}
+            disabled={loading || testSessionFinished}
           >
             <ImageUp className="size-4" />
             رفع صورة
@@ -364,7 +377,7 @@ function Home() {
             variant="outline"
             size="lg"
             onClick={() => pdfRef.current?.click()}
-            disabled={loading}
+            disabled={loading || testSessionFinished}
           >
             <FileUp className="size-4" />
             رفع ملف PDF
@@ -431,7 +444,7 @@ function Home() {
           </div>
         )}
 
-        {!loading && (testSessionActive || testSessionFinished) && testSessionResults.length > 0 && (
+        {(testSessionFinished || (testSessionActive && testSessionResults.length > 0)) && (
           <>
             <ExamSession
               results={testSessionResults}
