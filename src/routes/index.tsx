@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -144,6 +145,7 @@ function Home() {
       clearTimeout(timer1);
       clearTimeout(timer2);
       setLoading(false);
+      setPastedPreview(null);
     }
   };
 
